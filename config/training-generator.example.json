@@ -1,0 +1,7 @@
+{
+  "pagesProject": "my-training-site",
+  "pagesSection": "training",
+  "pagesBaseUrl": "https://my-training-site.pages.dev",
+  "statePath": "data/local/training-state.json",
+  "profilePack": "general-strength"
+}

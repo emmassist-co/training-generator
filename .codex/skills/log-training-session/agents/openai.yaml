@@ -1,0 +1,4 @@
+interface:
+  display_name: "Log Training Session"
+  short_description: "Record completed training and update state"
+  default_prompt: "Use $log-training-session to record the training I just did and update my saved history."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Training Plan"
+  short_description: "Build training sessions from saved history"
+  default_prompt: "Use $create-training-plan to build my next session from my saved history and active profile."

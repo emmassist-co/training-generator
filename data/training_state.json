@@ -1,0 +1,55 @@
+{
+  "profile": {
+    "name": "General Strength Example",
+    "training_focus": [
+      "strength",
+      "conditioning",
+      "consistency"
+    ],
+    "constraints": [],
+    "notes": "Example profile shipped with the repo. Replace or override it with your own local state."
+  },
+  "preferences": {
+    "planning_style": "clear, sustainable, and phone-friendly",
+    "exercise_source": "free-exercise-db local copy",
+    "state_policy": "future plans should review recent sessions before proposing new work",
+    "planning_authority": "the agent plans; helper scripts retrieve candidates and update state"
+  },
+  "weight_history": [],
+  "motivation_history": [],
+  "exercise_progression_notes": [],
+  "sessions": [
+    {
+      "date": "2026-06-01",
+      "session_type": "strength",
+      "focus": [
+        "lower body",
+        "posterior chain",
+        "trunk"
+      ],
+      "summary": "Example lower-body strength session completed with simple accessory work.",
+      "body_response": "good",
+      "confidence_note": "Session felt controlled and repeatable.",
+      "exercises": [
+        {
+          "name": "Goblet Squat",
+          "sets": 3,
+          "reps": 8,
+          "load": "moderate",
+          "notes": "Example movement entry."
+        },
+        {
+          "name": "Romanian Deadlift",
+          "sets": 3,
+          "reps": 10,
+          "load": "moderate",
+          "notes": "Example movement entry."
+        }
+      ],
+      "next_session_constraints": [
+        "Do not repeat the same lower-body pattern with higher load by default."
+      ],
+      "logged_at": "2026-06-01T09:00:00"
+    }
+  ]
+}

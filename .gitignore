@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+.env.*
+!.env.example
+.wrangler/
+.wrangler-output/
+config/*.local.json
+data/local/
+output/cloudflare-pages/
+output/training-plans/
+output/*.pdf

@@ -1,0 +1,18 @@
+{
+  "name": "training-generator",
+  "private": true,
+  "type": "module",
+  "description": "Generate phone-first training sessions, publish them to Cloudflare Pages, and log completions locally.",
+  "scripts": {
+    "test": "node --test tests/docs/*.test.mjs tests/node/*.test.mjs",
+    "init": "node ./scripts/init-training-generator.mjs",
+    "setup:pdf": "npx playwright install chromium",
+    "plan:pdf": "node ./tools/export_training_plan_pdf.mjs",
+    "html:publish": "node ./tools/publish_html_to_cloudflare.mjs",
+    "html:publish:dry-run": "node ./tools/publish_html_to_cloudflare.mjs --dry-run"
+  },
+  "dependencies": {
+    "playwright": "1.60.0",
+    "qrcode": "^1.5.4"
+  }
+}

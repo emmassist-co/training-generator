@@ -1,0 +1,69 @@
+{
+  "profile": {
+    "age": 32,
+    "height_cm": 184,
+    "weight_kg": 95,
+    "goal_order": [
+      "prevent future knee injuries",
+      "preserve the knee long term",
+      "stay fit and athletic",
+      "reduce excess body weight in knee-friendly ways"
+    ],
+    "knee_history": {
+      "side": "left",
+      "acl_surgeries": 2,
+      "medial_meniscus_remaining_percent": 30,
+      "lateral_meniscus_remaining_percent": 30
+    }
+  },
+  "preferences": {
+    "planning_style": "conservative and joint-preserving",
+    "exercise_source": "free-exercise-db local copy",
+    "state_policy": "future plans should review prior logged sessions before proposing new sessions",
+    "planning_authority": "the agent plans and coaches; local scripts only retrieve candidates and update state",
+    "motivation_policy": "plans should stay sustainable, confidence-building, and engaging enough to maintain adherence"
+  },
+  "weight_history": [],
+  "motivation_history": [],
+  "exercise_progression_notes": [],
+  "sessions": [
+    {
+      "date": "2026-06-03",
+      "session_type": "strength",
+      "focus": [
+        "quadriceps",
+        "glutes",
+        "hamstrings",
+        "upper body",
+        "trunk"
+      ],
+      "summary": "Week-1 return gym session completed with controlled leg press, hip thrust, upper-body work, and dead bugs.",
+      "knee_response": "better",
+      "pain_during_10": 0,
+      "swelling_after": "none",
+      "confidence_note": "Completed the first return session with no pain and no swelling, which is a strong early confidence signal.",
+      "motivation_pre_session": "medium",
+      "session_enjoyment": "medium",
+      "exercises": [
+        {
+          "name": "Leg Press",
+          "sets": 3,
+          "reps": 15,
+          "load": "60 kg",
+          "notes": "Easy across 3 sets. Used instead of the planned squat pattern."
+        },
+        {
+          "name": "Barbell Hip Thrust",
+          "sets": 3,
+          "reps": 8,
+          "load": "60 kg",
+          "notes": "Felt medium-heavy. This was above the original suggested start load."
+        }
+      ],
+      "next_session_constraints": [
+        "Keep the next session controlled and avoid adding both load and knee-dominant volume at the same time."
+      ],
+      "logged_at": "2026-06-03T14:28:18"
+    }
+  ]
+}
