@@ -1,0 +1,56 @@
+{
+  "title": "Lower Body Strength A",
+  "subtitle": "45-minute gym session",
+  "exercises": [
+    {
+      "exercise_id": "Barbell_Hip_Thrust",
+      "name": "Barbell Hip Thrust",
+      "sets": 4,
+      "reps": 8,
+      "rest_seconds": 90,
+      "load": "moderate",
+      "classification": "favorable",
+      "reason": "Posterior-chain emphasis with lower rotational stress.",
+      "execution_notes": [
+        "Drive through the heels.",
+        "Stop 2 reps before form degrades."
+      ],
+      "alternatives": [
+        {
+          "exercise_id": "Barbell_Glute_Bridge",
+          "name": "Barbell Glute Bridge",
+          "sets": 4,
+          "reps": 8,
+          "rest_seconds": 90,
+          "load": "moderate",
+          "note": "Use this if the hip thrust setup is busy."
+        }
+      ]
+    },
+    {
+      "exercise_id": "Ball_Leg_Curl",
+      "name": "Ball Leg Curl",
+      "sets": 3,
+      "reps": 10,
+      "rest_seconds": 60,
+      "load": "bodyweight",
+      "classification": "favorable",
+      "reason": "Hamstring work with controlled knee loading.",
+      "execution_notes": [
+        "Keep hips up through the rep.",
+        "Reduce range if the knee feels irritable."
+      ],
+      "alternatives": [
+        {
+          "exercise_id": "Glute_Ham_Raise",
+          "name": "Glute Ham Raise",
+          "sets": 3,
+          "reps": 8,
+          "rest_seconds": 75,
+          "load": "bodyweight or assisted",
+          "note": "Use this if no exercise ball is available."
+        }
+      ]
+    }
+  ]
+}

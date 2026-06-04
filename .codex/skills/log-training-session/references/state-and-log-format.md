@@ -4,6 +4,10 @@
 - Local state override: `TRAINING_GENERATOR_STATE_PATH` or `/Users/alexandre/dev/acl/data/local/training-state.json`
 - Shared helper: `/Users/alexandre/dev/acl/tools/training_state.py`
 
+The active local state file stores both:
+- the user profile and planning preferences
+- the completed training history
+
 Every logged session should add one object to `sessions`.
 
 Required fields for each session:

@@ -6,6 +6,7 @@ test("README presents a generic training generator", async () => {
   const readme = await readFile(new URL("../../README.md", import.meta.url), "utf8");
   assert.match(readme, /# Training Generator/);
   assert.match(readme, /own Cloudflare Pages site/);
+  assert.match(readme, /agent-native/i);
   assert.doesNotMatch(readme, /\bacl\b/i);
 });
 
@@ -14,4 +15,14 @@ test("package metadata is generic", async () => {
   assert.equal(pkg.name, "training-generator");
   assert.ok(pkg.scripts.test);
   assert.ok(pkg.scripts.init);
+  assert.ok(pkg.scripts["render:html"]);
+  assert.ok(pkg.scripts["state:summarize-context"]);
+  assert.ok(pkg.scripts["state:validate-log"]);
+});
+
+test("agent-native architecture doc exists", async () => {
+  const doc = await readFile(new URL("../../docs/agent-native.md", import.meta.url), "utf8");
+  assert.match(doc, /agent-native/i);
+  assert.match(doc, /Capability Map/);
+  assert.match(doc, /TL1/);
 });

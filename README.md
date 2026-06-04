@@ -9,6 +9,26 @@ Generate training sessions with AI, render them into phone-first HTML, publish t
 - publishes each session to a stable Cloudflare Pages path with a QR code
 - stores completed-session history locally for future planning
 
+In plain terms: this repo helps an agent turn a training idea into a phone page you can use in the gym, then turn the finished workout back into structured state.
+
+## Agent-Native
+
+This repo is designed to be agent-native.
+
+- the main operator workflows are exposed as repo-local skills
+- the durable truth is mostly files the user and agent both share
+- the phone page emits a compact `TL1` log an agent can parse directly
+- publish state stays user-owned in local config and the user's Cloudflare account
+
+The capability map is:
+- plan a session: `create-training-plan`
+- render artifacts from session JSON: `render-training-artifacts`
+- publish to Cloudflare: `publish-html-to-cloudflare`
+- test the phone runtime: `test-training-session-runtime`
+- log a finished workout back into state: `log-training-session`
+
+Architecture notes live in [`docs/agent-native.md`](./docs/agent-native.md).
+
 ## Product Boundary
 
 This repo is a generic training generator, not a single-condition product.
@@ -32,6 +52,30 @@ Then:
 ```bash
 npm test
 npm run html:publish:dry-run -- --title "Smoke Session"
+```
+
+`npm run init` now creates two local files:
+- `config/training-generator.local.json`: your Cloudflare publishing config
+- `data/local/training-state.json`: your user profile, preferences, and training history
+
+## Example
+
+Concrete example files live in [`examples/`](./examples):
+- [`lower-body-strength-a.session.json`](./examples/lower-body-strength-a.session.json): structured session payload the renderer consumes
+- [`completed-session-log.txt`](./examples/completed-session-log.txt): compact `TL1` log copied back from the phone page after training
+
+That example flow is:
+1. AI or a skill generates the session JSON.
+2. The renderer turns it into an interactive HTML training page.
+3. The publisher gives it a public Cloudflare URL plus QR code.
+4. The athlete completes the session on phone.
+5. The page emits a compact `TL1` log.
+6. A logging skill stores that back into local state.
+
+Render the example session locally:
+
+```bash
+npm run render:html -- --input examples/lower-body-strength-a.session.json --output output/training-plans/lower-body-strength-a.html
 ```
 
 ## Cloudflare Setup
@@ -70,7 +114,7 @@ Key fields:
 - `pagesProject`: your Cloudflare Pages project name
 - `pagesSection`: top-level route bucket, default `training`
 - `pagesBaseUrl`: optional override for deterministic dry runs or custom domains
-- `statePath`: optional local training-state file path
+- `statePath`: path to the local training-state file that stores the user profile and training history
 
 You can also use environment variables:
 - `TRAINING_GENERATOR_CONFIG`
@@ -78,21 +122,53 @@ You can also use environment variables:
 - `CLOUDFLARE_PAGES_BASE_URL`
 - `TRAINING_GENERATOR_STATE_PATH`
 
+## Local Training State
+
+The user profile lives inside the training state file, not in the repo identity.
+
+Default path:
+
+```bash
+data/local/training-state.json
+```
+
+That file is the shared local truth for:
+- `profile`: who the training is for and what constraints matter
+- `preferences`: how plans should be shaped
+- `sessions`: completed training history
+- `weight_history`
+- `motivation_history`
+- `exercise_progression_notes`
+
+The shipped `data/training_state.json` file is only an example seed. After `npm run init`, edit `data/local/training-state.json` with the real user profile and history.
+
 ## Core Commands
 
 ```bash
 npm run init
 npm test
+npm run render:html -- --input /absolute/path/to/session.json --output /absolute/path/to/session.html
 npm run html:publish -- --html-file /absolute/path/to/session.html
 npm run html:publish:dry-run -- --title "Smoke Session"
+npm run state:summarize-context
+npm run state:validate-log -- --input examples/completed-session-log.txt
 npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/path/to/session.pdf
 ```
+
+## How It Fits Together
+
+- `tools/render_training_plan.py`: turns structured session JSON into the phone-first HTML page
+- `tools/publish_html_to_cloudflare.mjs`: publishes that HTML into a stable Cloudflare Pages path and generates a QR code
+- `tools/training_state.py`: reads and updates local training history
+- `.codex/skills/`: the repo-local agent workflows that generate, publish, and log sessions
 
 ## Skills Workflow
 
 Repo-local skills cover the main flow:
 - generate a training session
+- render HTML and optional PDF from existing session JSON
 - publish the resulting HTML to Cloudflare
+- test the interactive phone runtime
 - log a completed session
 - bootstrap Cloudflare setup on a fresh machine
 
@@ -102,6 +178,18 @@ The intended operator flow is:
 3. open the session on phone
 4. complete it and copy the compact `TL1` log
 5. paste that log back into chat to update local state
+
+The copied log is intentionally token-light. It is meant for an LLM or skill to parse directly, not for a human to read as a report.
+
+## Shared Workspace
+
+The repo is intentionally file-first:
+- local state lives in `data/local/` unless you override it
+- publish config lives in `config/training-generator.local.json`
+- generated plans live in `output/training-plans/`
+- published-site artifacts live in `output/cloudflare-pages/site/`
+
+That means the user and the agent can inspect the same state without a hidden backend.
 
 ## Verification
 

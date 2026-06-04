@@ -5,6 +5,9 @@
 - Exercise library: `/Users/alexandre/dev/acl/free-exercise-db/dist/exercises.json`
 - Shared helper: `/Users/alexandre/dev/acl/tools/training_state.py`
 
+The active local state file is where the user profile lives.
+Do not invent a separate hidden profile store.
+
 Use the active state as the source of truth for:
 - profile and constraints,
 - recent training load,

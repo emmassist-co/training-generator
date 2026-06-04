@@ -592,7 +592,6 @@ def interactive_training_script() -> str:
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "") || "training-plan";
-      const storageKey = `training-session:${slug(title)}`;
       const currentUrl = window.location.href;
       const deriveTrainingId = () => {
         const pathParts = window.location.pathname.split("/").filter(Boolean);
@@ -604,6 +603,8 @@ def interactive_training_script() -> str:
         return slug(fileStem || title);
       };
       const trainingId = deriveTrainingId();
+      const storageKey = `training-session:${trainingId}`;
+      const legacyStorageKey = `training-session:${slug(title)}`;
 
       const parseDurationSeconds = (value) => {
         if (!value) return null;
@@ -740,7 +741,8 @@ def interactive_training_script() -> str:
 
       const loadState = () => {
         try {
-          return Object.assign({}, defaultState, JSON.parse(localStorage.getItem(storageKey) || "{}"));
+          const raw = localStorage.getItem(storageKey) || localStorage.getItem(legacyStorageKey) || "{}";
+          return Object.assign({}, defaultState, JSON.parse(raw));
         } catch {
           return JSON.parse(JSON.stringify(defaultState));
         }
@@ -787,6 +789,9 @@ def interactive_training_script() -> str:
 
       const saveState = () => {
         localStorage.setItem(storageKey, JSON.stringify(state));
+        if (legacyStorageKey !== storageKey) {
+          localStorage.removeItem(legacyStorageKey);
+        }
       };
 
       const getExerciseState = (index) => state.exerciseStates[index];

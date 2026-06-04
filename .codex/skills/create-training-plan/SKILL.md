@@ -8,6 +8,7 @@ description: Build the next training session from local state and the bundled ex
 Use this skill when the user wants a new session, a next-step progression, or a plan that should account for prior logged training.
 
 Start from local state, not from scratch.
+The active user profile is part of that same local state file.
 
 Read [references/state-and-db.md](./references/state-and-db.md) before using the helper commands.
 Read [references/artifact-format.md](./references/artifact-format.md) before finalizing the output.

@@ -6,6 +6,7 @@ description: Convert a free-form workout report into structured local training h
 # Log Training Session
 
 Use this skill when the user says what they trained and wants that preserved in local state.
+That same local state file also carries the user profile and planning preferences.
 
 Read [references/state-and-log-format.md](./references/state-and-log-format.md) before logging.
 

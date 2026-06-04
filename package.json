@@ -7,9 +7,12 @@
     "test": "node --test tests/docs/*.test.mjs tests/node/*.test.mjs",
     "init": "node ./scripts/init-training-generator.mjs",
     "setup:pdf": "npx playwright install chromium",
+    "render:html": "python3 ./tools/render_training_plan.py",
     "plan:pdf": "node ./tools/export_training_plan_pdf.mjs",
     "html:publish": "node ./tools/publish_html_to_cloudflare.mjs",
-    "html:publish:dry-run": "node ./tools/publish_html_to_cloudflare.mjs --dry-run"
+    "html:publish:dry-run": "node ./tools/publish_html_to_cloudflare.mjs --dry-run",
+    "state:summarize-context": "python3 ./tools/training_state.py summarize-context",
+    "state:validate-log": "python3 ./tools/training_state.py validate-tl1"
   },
   "dependencies": {
     "playwright": "1.60.0",

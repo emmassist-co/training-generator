@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCAL_STATE_PATH = ROOT / "data" / "local" / "training-state.json"
 EXAMPLE_STATE_PATH = ROOT / "data" / "training_state.json"
 EXERCISES_PATH = ROOT / "free-exercise-db" / "dist" / "exercises.json"
+DEFAULT_CONFIG_PATH = ROOT / "config" / "training-generator.local.json"
 
 LOWER_STRESS_PRIMARY = {"glutes", "hamstrings", "calves", "abdominals", "lower back", "middle back"}
 LOWER_BODY_RELEVANT = {"quadriceps", "hamstrings", "glutes", "calves", "adductors", "abductors"}
@@ -47,9 +48,24 @@ CAUTION_KEYWORDS = {
 }
 
 
+def load_workspace_config() -> dict[str, Any]:
+    config_override = os.environ.get("TRAINING_GENERATOR_CONFIG")
+    config_path = Path(config_override).expanduser() if config_override else DEFAULT_CONFIG_PATH
+    if not config_path.exists():
+        return {}
+    return load_json(config_path)
+
+
 def resolve_local_state_path() -> Path:
     override = os.environ.get("TRAINING_GENERATOR_STATE_PATH")
-    return Path(override).expanduser() if override else DEFAULT_LOCAL_STATE_PATH
+    if override:
+        return Path(override).expanduser()
+
+    config_state_path = load_workspace_config().get("statePath")
+    if config_state_path:
+        return (ROOT / config_state_path).resolve()
+
+    return DEFAULT_LOCAL_STATE_PATH
 
 
 def load_json(path: Path) -> Any:
@@ -66,6 +82,42 @@ def load_state() -> dict[str, Any]:
     if local_path.exists():
         return load_json(local_path)
     return load_json(EXAMPLE_STATE_PATH)
+
+
+def normalize_tl1_log(raw: str) -> dict[str, Any]:
+    text = raw.strip()
+    if not text.startswith("TL1 "):
+        raise ValueError("Expected log to start with 'TL1 '")
+
+    payload = json.loads(text[4:])
+    exercises: list[dict[str, Any]] = []
+    for exercise in payload.get("ex", []):
+        exercises.append(
+            {
+                "step": exercise.get("s"),
+                "planned_name": exercise.get("p"),
+                "actual_name": exercise.get("a"),
+                "swapped": bool(exercise.get("sw")),
+                "prescription_summary": exercise.get("ps"),
+                "completed_sets": exercise.get("cs"),
+                "set_target": exercise.get("st"),
+                "timer_seconds": exercise.get("tt"),
+                "completed": bool(exercise.get("ok")),
+            }
+        )
+
+    return {
+        "schema": "TL1",
+        "id": payload.get("id"),
+        "title": payload.get("t"),
+        "url": payload.get("u"),
+        "started_at": payload.get("sa"),
+        "ended_at": payload.get("ea"),
+        "difficulty": payload.get("d"),
+        "notes": payload.get("n", ""),
+        "exercise_count": len(exercises),
+        "exercises": exercises,
+    }
 
 
 def load_exercises() -> list[dict[str, Any]]:
@@ -202,6 +254,29 @@ def cmd_summarize_state(_: argparse.Namespace) -> None:
     print(json.dumps(summary, indent=2))
 
 
+def cmd_summarize_context(_: argparse.Namespace) -> None:
+    state = load_state()
+    config = load_workspace_config()
+    context = {
+        "profile": state.get("profile", {}),
+        "preferences": state.get("preferences", {}),
+        "recent_focus_counts": recent_focus_summary(state),
+        "latest_sessions": recent_sessions(state, 3),
+        "state": {
+            "path": str(resolve_local_state_path()),
+            "using_example_state": not resolve_local_state_path().exists(),
+        },
+        "publish": {
+            "pagesProject": config.get("pagesProject"),
+            "pagesSection": config.get("pagesSection", "training"),
+            "pagesBaseUrl": config.get("pagesBaseUrl"),
+            "config_path": str(DEFAULT_CONFIG_PATH),
+            "using_local_config": DEFAULT_CONFIG_PATH.exists(),
+        },
+    }
+    print(json.dumps(context, indent=2))
+
+
 def cmd_search_exercises(args: argparse.Namespace) -> None:
     exercises = load_exercises()
     results = search_exercises(
@@ -230,6 +305,7 @@ def cmd_log_session(args: argparse.Namespace) -> None:
                 "session_count": len(state["sessions"]),
                 "date": payload["date"],
                 "state_path": str(resolve_local_state_path()),
+                "summary": f"Logged session to {resolve_local_state_path()} ({len(state['sessions'])} total).",
             },
             indent=2,
         )
@@ -241,12 +317,20 @@ def cmd_show_recent(args: argparse.Namespace) -> None:
     print(json.dumps(recent_sessions(state, args.limit), indent=2))
 
 
+def cmd_validate_tl1(args: argparse.Namespace) -> None:
+    raw = Path(args.input).read_text() if args.input else args.log
+    print(json.dumps(normalize_tl1_log(raw), indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Training state helper")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     summarize = subparsers.add_parser("summarize-state")
     summarize.set_defaults(func=cmd_summarize_state)
+
+    context = subparsers.add_parser("summarize-context")
+    context.set_defaults(func=cmd_summarize_context)
 
     search = subparsers.add_parser("search-exercises")
     search.add_argument("--include-muscles", nargs="*", default=[])
@@ -264,6 +348,12 @@ def build_parser() -> argparse.ArgumentParser:
     recent = subparsers.add_parser("show-recent")
     recent.add_argument("--limit", type=int, default=5)
     recent.set_defaults(func=cmd_show_recent)
+
+    validate_tl1 = subparsers.add_parser("validate-tl1")
+    validate_group = validate_tl1.add_mutually_exclusive_group(required=True)
+    validate_group.add_argument("--input")
+    validate_group.add_argument("--log")
+    validate_tl1.set_defaults(func=cmd_validate_tl1)
 
     return parser
 
