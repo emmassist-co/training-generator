@@ -26,8 +26,8 @@ The agent does the planning.
 1. Read current state:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/training_state.py summarize-state
-python3 /Users/alexandre/dev/acl/tools/training_state.py show-recent --limit 5
+python3 tools/training_state.py summarize-state
+python3 tools/training_state.py show-recent --limit 5
 ```
 
 2. Infer the immediate planning need:
@@ -42,8 +42,8 @@ python3 /Users/alexandre/dev/acl/tools/training_state.py show-recent --limit 5
 Typical search patterns:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/training_state.py search-exercises --include-muscles glutes hamstrings calves abdominals --allowed-risk prefer caution --limit 12
-python3 /Users/alexandre/dev/acl/tools/training_state.py search-exercises --include-muscles quadriceps adductors abductors --allowed-risk caution --categories strength stretching --limit 12
+python3 tools/training_state.py search-exercises --include-muscles glutes hamstrings calves abdominals --allowed-risk prefer caution --limit 12
+python3 tools/training_state.py search-exercises --include-muscles quadriceps adductors abductors --allowed-risk caution --categories strength stretching --limit 12
 ```
 
 4. Curate the output yourself.
@@ -117,7 +117,7 @@ Do not stop after writing the plan in chat.
 2. Run:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/render_training_plan.py --input /tmp/plan.json --output /Users/alexandre/dev/acl/output/training-plans/<slug>.html
+python3 tools/render_training_plan.py --input /tmp/plan.json --output output/training-plans/<slug>.html
 ```
 
 3. Return the file link in the response when the user is still reviewing the draft.
@@ -129,8 +129,7 @@ After the user agrees to the plan:
 4. Publish the HTML artifact:
 
 ```bash
-cd /Users/alexandre/dev/acl
-npm run html:publish -- --title "<plan title>" --html-file /Users/alexandre/dev/acl/output/training-plans/<slug>.html
+npm run html:publish -- --title "<plan title>" --html-file output/training-plans/<slug>.html
 ```
 
 5. Read the JSON output and return:
@@ -143,7 +142,7 @@ When presenting the approved result, prefer the Cloudflare URL first and show th
 When the user asks for PDF:
 
 ```bash
-cd /Users/alexandre/dev/acl && npm run plan:pdf -- --input /Users/alexandre/dev/acl/output/training-plans/<slug>.html --output /Users/alexandre/dev/acl/output/training-plans/<slug>.pdf
+npm run plan:pdf -- --input output/training-plans/<slug>.html --output output/training-plans/<slug>.pdf
 ```
 
 Return links to both the HTML and PDF files. If the user also approved sharing, publish the HTML version and return the Cloudflare URL plus QR alongside the files.
@@ -151,7 +150,6 @@ Return links to both the HTML and PDF files. If the user also approved sharing, 
 If the repo has not been bootstrapped yet, the local setup is:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm install
 npm run setup:pdf
 ```

@@ -19,14 +19,12 @@ Default outputs:
 2. Render HTML:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm run render:html -- --input /absolute/path/to/session.json --output /absolute/path/to/session.html
 ```
 
 3. If the user wants PDF too:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/path/to/session.pdf
 ```
 

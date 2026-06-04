@@ -4,12 +4,11 @@ The planner must create a phone-friendly artifact, not just send plan text in ch
 
 Repo-local dependency manifest:
 
-- `/Users/alexandre/dev/acl/package.json`
+- `package.json`
 
 Local install flow when the repo should be self-sufficient:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm install
 npm run setup:pdf
 ```
@@ -21,13 +20,13 @@ Default format:
 Renderer:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/render_training_plan.py --input /tmp/plan.json --output /Users/alexandre/dev/acl/output/training-plans/<slug>.html
+python3 tools/render_training_plan.py --input /tmp/plan.json --output output/training-plans/<slug>.html
 ```
 
 PDF exporter:
 
 ```bash
-cd /Users/alexandre/dev/acl && npm run plan:pdf -- --input /Users/alexandre/dev/acl/output/training-plans/<slug>.html --output /Users/alexandre/dev/acl/output/training-plans/<slug>.pdf
+npm run plan:pdf -- --input output/training-plans/<slug>.html --output output/training-plans/<slug>.pdf
 ```
 
 Requirements:

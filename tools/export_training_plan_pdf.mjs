@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const bundledNodeModules =
-  "/Users/alexandre/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules";
+  path.join(
+    os.homedir(),
+    ".cache",
+    "codex-runtimes",
+    "codex-primary-runtime",
+    "dependencies",
+    "node",
+    "node_modules",
+  );
 
 async function loadPlaywright() {
   try {

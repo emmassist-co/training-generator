@@ -23,19 +23,17 @@ Naming default:
 1. Make sure the HTML artifact already exists, or create it first.
 
 Typical source:
-- `/Users/alexandre/dev/acl/output/training-plans/<slug>.html`
+- `output/training-plans/<slug>.html`
 
 2. Publish it with the repo helper:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm run html:publish -- --html-file /absolute/path/to/file.html
 ```
 
 3. If the user wants a specific path, pass it explicitly:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm run html:publish -- --path session-a1b2c3 --html-file /absolute/path/to/file.html
 ```
 
@@ -63,7 +61,7 @@ npm run html:publish -- --path session-a1b2c3 --html-file /absolute/path/to/file
 
 ## Notes
 
-- The helper script updates the shared site tree at `/Users/alexandre/dev/acl/output/cloudflare-pages/site`.
+- The helper script updates the shared site tree at `output/cloudflare-pages/site`.
 - Publishing redeploys the production Pages site so older `/training/<id>/` pages stay available.
 - The site index is at the configured base URL root.
 - The helper writes the QR code image into the published page directory as `qr.png`.
@@ -73,7 +71,6 @@ npm run html:publish -- --path session-a1b2c3 --html-file /absolute/path/to/file
 - If publish fails, rerun:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npx wrangler whoami
 ```
 

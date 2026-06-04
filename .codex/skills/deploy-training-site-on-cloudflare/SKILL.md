@@ -27,56 +27,48 @@ By the end:
 1. Bootstrap the repo:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm install
 ```
 
 2. Verify Wrangler is callable:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npx wrangler --version
 ```
 
 3. Check Cloudflare auth:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npx wrangler whoami
 ```
 
 4. If not authenticated, log in:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npx wrangler login
 ```
 
 5. Check whether the Pages project already exists:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npx wrangler pages project list --json
 ```
 
 6. If the configured project does not exist, create it:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npx wrangler pages project create <your-project-name> --production-branch main
 ```
 
 7. Verify the local publisher wiring:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm run html:publish -- --dry-run
 ```
 
 8. Do a real smoke deploy:
 
 ```bash
-cd /Users/alexandre/dev/acl
 npm run html:publish -- --title "Smoke Test"
 ```
 
@@ -92,10 +84,10 @@ npm run html:publish -- --title "Smoke Test"
 
 ## Repo Facts
 
-- Publisher entrypoint: `/Users/alexandre/dev/acl/tools/publish_html_to_cloudflare.mjs`
+- Publisher entrypoint: `tools/publish_html_to_cloudflare.mjs`
 - NPM command: `npm run html:publish`
-- Shared site tree: `/Users/alexandre/dev/acl/output/cloudflare-pages/site`
-- Local publishing skill: `/Users/alexandre/dev/acl/.codex/skills/publish-html-to-cloudflare/SKILL.md`
+- Shared site tree: `output/cloudflare-pages/site`
+- Local publishing skill: `.codex/skills/publish-html-to-cloudflare/SKILL.md`
 
 ## Troubleshooting
 

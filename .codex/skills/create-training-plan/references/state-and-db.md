@@ -1,9 +1,9 @@
 # State And Exercise Library
 
-- Example state file: `/Users/alexandre/dev/acl/data/training_state.json`
-- Local state override: `TRAINING_GENERATOR_STATE_PATH` or `/Users/alexandre/dev/acl/data/local/training-state.json`
-- Exercise library: `/Users/alexandre/dev/acl/free-exercise-db/dist/exercises.json`
-- Shared helper: `/Users/alexandre/dev/acl/tools/training_state.py`
+- Example state file: `data/training_state.json`
+- Local state override: `TRAINING_GENERATOR_STATE_PATH` or `data/local/training-state.json`
+- Exercise library: `free-exercise-db/dist/exercises.json`
+- Shared helper: `tools/training_state.py`
 
 The active local state file is where the user profile lives.
 Do not invent a separate hidden profile store.
@@ -23,10 +23,10 @@ The skill should still filter for the active profile and reject bad tradeoffs.
 Useful commands:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/training_state.py summarize-state
-python3 /Users/alexandre/dev/acl/tools/training_state.py show-recent --limit 5
-python3 /Users/alexandre/dev/acl/tools/training_state.py search-exercises --include-muscles glutes hamstrings calves abdominals --allowed-risk prefer caution --limit 12
-python3 /Users/alexandre/dev/acl/tools/training_state.py search-exercises --include-muscles quadriceps adductors abductors --allowed-risk caution --categories strength stretching --limit 12
+python3 tools/training_state.py summarize-state
+python3 tools/training_state.py show-recent --limit 5
+python3 tools/training_state.py search-exercises --include-muscles glutes hamstrings calves abdominals --allowed-risk prefer caution --limit 12
+python3 tools/training_state.py search-exercises --include-muscles quadriceps adductors abductors --allowed-risk caution --categories strength stretching --limit 12
 ```
 
 Interpret helper output conservatively:

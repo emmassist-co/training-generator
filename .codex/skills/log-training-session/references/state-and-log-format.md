@@ -1,8 +1,8 @@
 # Session Logging Format
 
-- Example state file: `/Users/alexandre/dev/acl/data/training_state.json`
-- Local state override: `TRAINING_GENERATOR_STATE_PATH` or `/Users/alexandre/dev/acl/data/local/training-state.json`
-- Shared helper: `/Users/alexandre/dev/acl/tools/training_state.py`
+- Example state file: `data/training_state.json`
+- Local state override: `TRAINING_GENERATOR_STATE_PATH` or `data/local/training-state.json`
+- Shared helper: `tools/training_state.py`
 
 The active local state file stores both:
 - the user profile and planning preferences
@@ -35,7 +35,7 @@ Recommended workflow:
 1. Read recent state first:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/training_state.py summarize-state
+python3 tools/training_state.py summarize-state
 ```
 
 2. Convert the user's free-form description into one structured session object.
@@ -44,7 +44,7 @@ python3 /Users/alexandre/dev/acl/tools/training_state.py summarize-state
 4. Append it with:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/training_state.py log-session --input /tmp/session.json
+python3 tools/training_state.py log-session --input /tmp/session.json
 ```
 
 5. Report back the updated state implications for future planning.

@@ -23,7 +23,7 @@ The agent interprets the workout and extracts coaching signal.
 1. Read current state first:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/training_state.py summarize-state
+python3 tools/training_state.py summarize-state
 ```
 
 2. Turn the user's message into one structured session object.
@@ -37,7 +37,7 @@ python3 /Users/alexandre/dev/acl/tools/training_state.py summarize-state
 3. Write the session object to a temp JSON file, then append it:
 
 ```bash
-python3 /Users/alexandre/dev/acl/tools/training_state.py log-session --input /tmp/session.json
+python3 tools/training_state.py log-session --input /tmp/session.json
 ```
 
 4. After logging, report the implications for planning.
