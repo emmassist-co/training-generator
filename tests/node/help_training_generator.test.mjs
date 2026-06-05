@@ -11,9 +11,9 @@ test("help script exposes workflows and prompts", async () => {
   const payload = JSON.parse(result.stdout);
   assert.match(payload.summary, /agent-native workspace/i);
   assert.ok(payload.workflows.some((workflow) => workflow.skill === "create-training-plan"));
-  assert.ok(payload.workflows.some((workflow) => /quick product tour/i.test(workflow.name)));
+  assert.ok(payload.workflows.some((workflow) => /generator capabilities tour/i.test(workflow.name)));
   assert.ok(payload.prompts.some((prompt) => /TL1/.test(prompt)));
-  assert.ok(payload.prompts.some((prompt) => /demo training session/i.test(prompt)));
+  assert.ok(payload.prompts.some((prompt) => /generator's capabilities/i.test(prompt)));
 });
 
 function run(command, args, cwd, extraEnv = {}) {

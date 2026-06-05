@@ -21,12 +21,13 @@ Exact setup flow:
    This should create local config/state files if they do not exist yet.
 4. Tell me exactly which files I need to edit next for my own usage.
 5. Run the relevant smoke tests and confirm the workspace works locally.
-6. Give me a short owner tour of the product after install:
+6. Give me a short owner tour of the generator after install:
+   - what the generator can do end to end
    - what the main workflows are
    - what files were created for me
    - what I should edit first
    - what I can ignore until later
-7. Generate me one demo training session from the example/local state, run the plan eval on it, and render the HTML so I can see the product working.
+7. After that tour, generate one demo training session from the example/local state, run the plan eval on it, and render the HTML as a proof/demo of the generator workflow.
 8. Show me the exact commands you used for that demo flow so I can repeat it myself.
 
 After setup, explain:

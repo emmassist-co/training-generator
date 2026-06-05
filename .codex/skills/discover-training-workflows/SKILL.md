@@ -24,4 +24,4 @@ node tools/help_training_generator.mjs --json
 - Prefer showing the shortest path to the next useful action.
 - If the user has not initialized the workspace yet, lead with `npm run init`.
 - If the user already has a rendered session JSON or HTML file, point them to render/publish workflows instead of the planning workflow.
-- After an owner-install handoff, do not stop at capability listing. Give a short tour, point at the first local files to edit, and suggest or run one demo session flow so the owner can see the product working.
+- After an owner-install handoff, do not stop at capability listing. Give a short tour centered on the generator's capabilities and workflow, point at the first local files to edit, and use one demo session flow only as proof that the generator works end to end.

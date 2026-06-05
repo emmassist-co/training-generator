@@ -15,10 +15,10 @@ const payload = {
       prompt: "Generate my next training session from my local state.",
     },
     {
-      name: "Give the owner a quick product tour after setup",
+      name: "Give the owner a quick generator capabilities tour after setup",
       skill: "discover-training-workflows",
       command: "node ./tools/help_training_generator.mjs",
-      prompt: "Give me a short tour of what this workspace can do, what files matter first, and what I should try next.",
+      prompt: "Give me a short tour of the generator's capabilities, what files matter first, and what I should try next.",
     },
     {
       name: "Render HTML or PDF from existing session JSON",
@@ -71,7 +71,7 @@ const payload = {
   prompts: [
     "Ask the key onboarding questions for this training generator, save my profile, then tell me what you learned.",
     "Generate my next training session from my local state.",
-    "Give me a quick tour of the workspace, then generate and render one demo training session so I can see it working.",
+    "Give me a quick tour of the generator's capabilities, then generate and render one demo training session as proof that the workflow works.",
     "Render this session JSON into a phone page and publish it.",
     "Stage this training page locally, then deploy the site when I say go.",
     "Open the latest rendered plan and test the workout interactions.",
