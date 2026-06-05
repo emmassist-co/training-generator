@@ -18,6 +18,68 @@ test("validate-tl1 parses compact training log", async () => {
   assert.equal(payload.telemetry.schema_version, 1);
   assert.ok(payload.exercises[0].telemetry);
   assert.ok(Array.isArray(payload.exercises[0].telemetry.active_windows));
+  assert.equal(payload.exercises[0].telemetry.next_exercise_start_gap_seconds, 3);
+});
+
+test("log-session preserves telemetry from a parsed TL1 payload", async () => {
+  const stateRoot = await mkdtemp(path.join(tmpdir(), "training-generator-tl1-log-"));
+  const statePath = path.join(stateRoot, "training-state.json");
+  const seedState = JSON.parse(await readFile(path.join(repoRoot, "data", "training_state.json"), "utf8"));
+  seedState.sessions = [];
+  await writeFile(statePath, JSON.stringify(seedState, null, 2), "utf8");
+
+  const tl1Result = await run(
+    "python3",
+    ["./tools/training_state.py", "validate-tl1", "--input", "./examples/completed-session-log.txt"],
+    repoRoot,
+  );
+  assert.equal(tl1Result.exitCode, 0, tl1Result.stderr);
+  const tl1 = JSON.parse(tl1Result.stdout);
+
+  const sessionInputPath = path.join(stateRoot, "session.json");
+  await writeFile(
+    sessionInputPath,
+    JSON.stringify(
+      {
+        title: tl1.title,
+        source_training_id: tl1.id,
+        date: "2026-06-03",
+        session_type: "strength",
+        focus: ["glutes", "hamstrings"],
+        summary: "Completed published lower-body strength session.",
+        body_response: "good",
+        pain_during_10: 2,
+        swelling_after: "none",
+        confidence_note: "Felt steady throughout.",
+        difficulty: tl1.difficulty,
+        notes: tl1.notes,
+        telemetry: tl1.telemetry,
+        exercises: tl1.exercises,
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+
+  const extraEnv = { TRAINING_GENERATOR_STATE_PATH: statePath };
+  const logResult = await run("python3", ["./tools/training_state.py", "log-session", "--input", sessionInputPath], repoRoot, extraEnv);
+  assert.equal(logResult.exitCode, 0, logResult.stderr);
+  const logged = JSON.parse(logResult.stdout);
+
+  const readResult = await run(
+    "python3",
+    ["./tools/training_state.py", "read-session", "--session-id", logged.session_id],
+    repoRoot,
+    extraEnv
+  );
+  assert.equal(readResult.exitCode, 0, readResult.stderr);
+  const session = JSON.parse(readResult.stdout);
+
+  assert.deepEqual(session.telemetry, tl1.telemetry);
+  assert.equal(session.exercises[0].telemetry.swap_count, 1);
+  assert.equal(session.exercises[0].telemetry.next_exercise_start_gap_seconds, 3);
+  assert.equal(session.exercises[1].telemetry.active_total_seconds, 45);
 });
 
 test("validate-tl1 remains compatible with logs that have no telemetry block", async () => {
