@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
@@ -58,6 +58,75 @@ async function main() {
           section: options.section ? section : null,
           baseUrl,
           pages,
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  if (options.deletePublished) {
+    if (!options.pathSegment) {
+      throw new Error("Deleting a published page requires --path.");
+    }
+
+    const relativePagePath = path.join(section, options.pathSegment);
+    const pageDir = path.join(siteRoot, relativePagePath);
+    const pageUrl = `${baseUrl}/${toUrlPath(relativePagePath)}/`;
+
+    await rm(pageDir, { recursive: true, force: true });
+    await refreshIndexPage(baseUrl);
+
+    let deploymentUrl = null;
+    if (!options.dryRun) {
+      const deployArgs = [
+        "wrangler",
+        "pages",
+        "deploy",
+        siteRoot,
+        "--project-name",
+        projectName,
+        "--branch",
+        "main",
+      ];
+
+      const outputCapturePath = path.join(pagesOutputDir, `delete-${options.pathSegment}.ndjson`);
+      await mkdir(pagesOutputDir, { recursive: true });
+      const env = {
+        ...process.env,
+        WRANGLER_OUTPUT_FILE_PATH: outputCapturePath,
+      };
+      const { stdout, stderr, exitCode } = await runCommand("npx", deployArgs, {
+        cwd: workspaceRoot,
+        env,
+      });
+
+      if (exitCode !== 0) {
+        throw new Error(
+          `Wrangler deploy failed with exit code ${exitCode}.\n${stderr || stdout}`.trim()
+        );
+      }
+
+      const structuredOutput = await safeReadFile(outputCapturePath);
+      deploymentUrl =
+        findFirstUrl(structuredOutput, projectName) ??
+        findFirstUrl(stdout, projectName) ??
+        findFirstUrl(stderr, projectName);
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          ok: true,
+          action: "deleted",
+          projectName,
+          section,
+          pageId: options.pathSegment,
+          pageUrl,
+          pageDir,
+          deployed: !options.dryRun,
+          deploymentUrl,
         },
         null,
         2
@@ -213,6 +282,10 @@ function parseArgs(argv) {
     }
     if (arg === "--list-published") {
       options.listPublished = true;
+      continue;
+    }
+    if (arg === "--delete-published") {
+      options.deletePublished = true;
       continue;
     }
     if (arg === "--project") {
@@ -637,6 +710,7 @@ Options:
   --title      Used when wrapping a fragment or generating the default page.
   --dry-run    Generate files and print the derived URL without deploying.
   --list-published  Print published page metadata from the local site tree.
+  --delete-published  Remove one published page from the local site tree, then redeploy unless --dry-run.
   --help       Show this help.
 
 Config:

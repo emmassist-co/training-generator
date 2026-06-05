@@ -150,11 +150,18 @@ npm run help
 npm run init
 npm test
 npm run render:html -- --input /absolute/path/to/session.json --output /absolute/path/to/session.html
+npm run artifacts:list
+npm run artifacts:delete -- --delete lower-body-strength-a
 npm run html:publish -- --html-file /absolute/path/to/session.html
 npm run html:publish:dry-run -- --title "Smoke Session"
 npm run html:list-published
+npm run html:publish -- --delete-published --path 2026-06-05-lower-body-a-01abcxyz
 npm run state:read
 npm run state:read-profile
+npm run state:list-sessions -- --limit 10
+npm run state:read-session -- --session-id 2026-06-05-lower-body-a-abc123
+npm run state:update-session -- --session-id 2026-06-05-lower-body-a-abc123 --input /absolute/path/to/session-patch.json
+npm run state:delete-session -- --session-id 2026-06-05-lower-body-a-abc123
 npm run state:list-exercises -- --limit 10
 npm run state:summarize-context
 npm run state:validate-log -- --input examples/completed-session-log.txt
@@ -164,6 +171,7 @@ npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/pa
 ## How It Fits Together
 
 - `tools/render_training_plan.py`: turns structured session JSON into the phone-first HTML page
+- `tools/manage_training_artifacts.mjs`: lists or deletes rendered HTML/PDF artifacts in `output/training-plans/`
 - `tools/publish_html_to_cloudflare.mjs`: publishes that HTML into a stable Cloudflare Pages path and generates a QR code
 - `tools/training_state.py`: reads and updates local training history
 - `.codex/skills/`: the repo-local agent workflows that generate, publish, and log sessions
@@ -193,6 +201,7 @@ The copied log is intentionally token-light. It is meant for an LLM or skill to 
 - `Generate my next training session from my local state.`
 - `Render this session JSON into a phone page and a PDF.`
 - `Publish this training HTML to Cloudflare and give me the URL and QR.`
+- `List my rendered artifacts and published training pages, then delete the stale ones.`
 - `Open the latest rendered training page and test the workout interactions.`
 - `Here is a TL1 log. Update my local training history and tell me what it means for the next session.`
 - `Show me the active profile, recent sessions, and Cloudflare publish context.`

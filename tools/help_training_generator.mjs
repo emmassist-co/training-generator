@@ -21,6 +21,12 @@ const payload = {
       prompt: "Publish this training HTML to Cloudflare and give me the URL and QR.",
     },
     {
+      name: "Inspect or clean up artifacts and published pages",
+      skill: "discover-training-workflows",
+      command: "npm run artifacts:list",
+      prompt: "List my rendered artifacts and published training pages, then delete the stale ones.",
+    },
+    {
       name: "Test the phone runtime",
       skill: "test-training-session-runtime",
       command: null,
@@ -45,6 +51,7 @@ const payload = {
     "Here is a TL1 training log. Log it and tell me what it means for the next session.",
     "Show me the active profile, recent sessions, and Cloudflare publish context.",
     "List the published training pages in this workspace.",
+    "Delete an old published page and remove its matching local artifacts.",
   ],
 };
 

@@ -16,13 +16,16 @@ This repo is an agent-native training generator, not just a pile of helper scrip
 | Discover the main workflows and prompts | `.codex/skills/discover-training-workflows/`, `tools/help_training_generator.mjs`, `npm run help` |
 | Plan the next session from local history | `.codex/skills/create-training-plan/` |
 | Render session JSON into HTML or PDF | `.codex/skills/render-training-artifacts/`, `tools/render_training_plan.py`, `npm run render:html`, `npm run plan:pdf` |
+| List or delete rendered HTML/PDF artifacts | `tools/manage_training_artifacts.mjs`, `npm run artifacts:list`, `npm run artifacts:delete` |
 | Publish a session page to the user's Cloudflare Pages site | `.codex/skills/publish-html-to-cloudflare/`, `tools/publish_html_to_cloudflare.mjs`, `npm run html:publish` |
 | List already-published training pages | `tools/publish_html_to_cloudflare.mjs --list-published`, `npm run html:list-published` |
+| Delete one published training page | `tools/publish_html_to_cloudflare.mjs --delete-published --path <page-id>` |
 | Test the interactive training page | `.codex/skills/test-training-session-runtime/` |
 | Parse or validate a copied `TL1` log | `tools/training_state.py validate-tl1`, `npm run state:validate-log` |
 | Log a completed workout into local history | `.codex/skills/log-training-session/`, `tools/training_state.py log-session` |
 | Summarize the current shared planning context | `tools/training_state.py summarize-context`, `npm run state:summarize-context` |
 | Read raw local state, profile, or exercise records | `tools/training_state.py read-state`, `read-profile`, `list-exercises`, `read-exercise` |
+| Read, update, or delete logged sessions | `tools/training_state.py list-sessions`, `read-session`, `update-session`, `delete-session` |
 
 ## Shared Workspace
 
@@ -55,7 +58,7 @@ This is deliberate. The planning agent should read one shared local file instead
 ## Known Limits
 
 - The tool layer is still workflow-heavy, not fully primitive-heavy.
-- CRUD is strongest for create/read; update/delete paths are still thin.
+- Some workflows are still monolithic, especially render and publish.
 - The phone runtime is shared back to the agent through `TL1`, not live sync.
 
 ## Direction

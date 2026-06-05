@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from collections import Counter
@@ -85,6 +86,44 @@ def load_state() -> dict[str, Any]:
     if local_path.exists():
         return load_json(local_path)
     return load_json(EXAMPLE_STATE_PATH)
+
+
+def ensure_session_ids(state: dict[str, Any]) -> bool:
+    changed = False
+    for session in state.get("sessions", []):
+        if session.get("session_id"):
+            continue
+        session["session_id"] = build_session_id(session)
+        changed = True
+    return changed
+
+
+def build_session_id(payload: dict[str, Any]) -> str:
+    date_part = str(payload.get("date") or date.today())
+    base = str(payload.get("source_training_id") or payload.get("id") or "session").strip().lower()
+    safe = "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in base)
+    safe = "-".join(filter(None, safe.split("-")))[:48] or "session"
+    normalized = {key: value for key, value in payload.items() if key != "session_id"}
+    digest = hashlib.sha1(json.dumps(normalized, sort_keys=True).encode("utf-8")).hexdigest()[:6]
+    return f"{date_part}-{safe}-{digest}"
+
+
+def find_session_index(state: dict[str, Any], session_id: str) -> int:
+    for index, session in enumerate(state.get("sessions", [])):
+        if session.get("session_id") == session_id:
+            return index
+    raise SystemExit(f"Session not found: {session_id}")
+
+
+def session_summary(session: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "session_id": session.get("session_id"),
+        "date": session.get("date"),
+        "title": session.get("title"),
+        "source_training_id": session.get("source_training_id"),
+        "difficulty": session.get("difficulty"),
+        "focus": session.get("focus", []),
+    }
 
 
 def normalize_tl1_log(raw: str) -> dict[str, Any]:
@@ -338,12 +377,14 @@ def cmd_log_session(args: argparse.Namespace) -> None:
     payload = json.loads(Path(args.input).read_text())
     payload.setdefault("logged_at", datetime.now().isoformat(timespec="seconds"))
     payload.setdefault("date", str(date.today()))
+    payload.setdefault("session_id", build_session_id(payload))
     state.setdefault("sessions", []).append(payload)
     save_json(resolve_local_state_path(), state)
     print(
         json.dumps(
             {
                 "ok": True,
+                "session_id": payload["session_id"],
                 "session_count": len(state["sessions"]),
                 "date": payload["date"],
                 "state_path": str(resolve_local_state_path()),
@@ -357,6 +398,68 @@ def cmd_log_session(args: argparse.Namespace) -> None:
 def cmd_show_recent(args: argparse.Namespace) -> None:
     state = load_state()
     print(json.dumps(recent_sessions(state, args.limit), indent=2))
+
+
+def cmd_list_sessions(args: argparse.Namespace) -> None:
+    state = load_state()
+    ensure_session_ids(state)
+    sessions = [
+        session_summary(session)
+        for session in sorted(state.get("sessions", []), key=lambda item: item.get("date", ""), reverse=True)
+    ]
+    if args.limit:
+        sessions = sessions[:args.limit]
+    print(json.dumps(sessions, indent=2))
+
+
+def cmd_read_session(args: argparse.Namespace) -> None:
+    state = load_state()
+    ensure_session_ids(state)
+    session = state.get("sessions", [])[find_session_index(state, args.session_id)]
+    print(json.dumps(session, indent=2))
+
+
+def cmd_update_session(args: argparse.Namespace) -> None:
+    state = load_state()
+    ensure_session_ids(state)
+    session_index = find_session_index(state, args.session_id)
+    current = state["sessions"][session_index]
+    patch = json.loads(Path(args.input).read_text())
+    patch.pop("session_id", None)
+    updated = {**current, **patch, "session_id": args.session_id}
+    state["sessions"][session_index] = updated
+    save_json(resolve_local_state_path(), state)
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "action": "updated",
+                "session": session_summary(updated),
+                "state_path": str(resolve_local_state_path()),
+            },
+            indent=2,
+        )
+    )
+
+
+def cmd_delete_session(args: argparse.Namespace) -> None:
+    state = load_state()
+    ensure_session_ids(state)
+    session_index = find_session_index(state, args.session_id)
+    removed = state["sessions"].pop(session_index)
+    save_json(resolve_local_state_path(), state)
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "action": "deleted",
+                "session": session_summary(removed),
+                "session_count": len(state.get("sessions", [])),
+                "state_path": str(resolve_local_state_path()),
+            },
+            indent=2,
+        )
+    )
 
 
 def cmd_validate_tl1(args: argparse.Namespace) -> None:
@@ -404,6 +507,23 @@ def build_parser() -> argparse.ArgumentParser:
     recent = subparsers.add_parser("show-recent")
     recent.add_argument("--limit", type=int, default=5)
     recent.set_defaults(func=cmd_show_recent)
+
+    list_sessions = subparsers.add_parser("list-sessions")
+    list_sessions.add_argument("--limit", type=int, default=10)
+    list_sessions.set_defaults(func=cmd_list_sessions)
+
+    read_session = subparsers.add_parser("read-session")
+    read_session.add_argument("--session-id", required=True)
+    read_session.set_defaults(func=cmd_read_session)
+
+    update_session = subparsers.add_parser("update-session")
+    update_session.add_argument("--session-id", required=True)
+    update_session.add_argument("--input", required=True)
+    update_session.set_defaults(func=cmd_update_session)
+
+    delete_session = subparsers.add_parser("delete-session")
+    delete_session.add_argument("--session-id", required=True)
+    delete_session.set_defaults(func=cmd_delete_session)
 
     validate_tl1 = subparsers.add_parser("validate-tl1")
     validate_group = validate_tl1.add_mutually_exclusive_group(required=True)

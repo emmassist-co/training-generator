@@ -70,6 +70,56 @@ test("publisher can list published pages from local site tree", async () => {
   assert.ok(payload.pages.some((page) => page.pageId === uniquePath));
 });
 
+test("publisher can delete a published page from the local site tree", async () => {
+  const cwd = path.resolve(new URL("../..", import.meta.url).pathname);
+  const uniquePath = `test-delete-${Date.now()}`;
+
+  const publishResult = await run(
+    "node",
+    [
+      "./tools/publish_html_to_cloudflare.mjs",
+      "--dry-run",
+      "--section",
+      "test-pages",
+      "--path",
+      uniquePath,
+      "--title",
+      "Delete Test",
+      "--html",
+      "<h1>Delete Test</h1>"
+    ],
+    cwd
+  );
+  assert.equal(publishResult.exitCode, 0, publishResult.stderr);
+
+  const deleteResult = await run(
+    "node",
+    [
+      "./tools/publish_html_to_cloudflare.mjs",
+      "--dry-run",
+      "--delete-published",
+      "--section",
+      "test-pages",
+      "--path",
+      uniquePath
+    ],
+    cwd
+  );
+  assert.equal(deleteResult.exitCode, 0, deleteResult.stderr);
+  const deleted = JSON.parse(deleteResult.stdout);
+  assert.equal(deleted.action, "deleted");
+  assert.equal(deleted.pageId, uniquePath);
+
+  const listResult = await run(
+    "node",
+    ["./tools/publish_html_to_cloudflare.mjs", "--list-published", "--section", "test-pages"],
+    cwd
+  );
+  assert.equal(listResult.exitCode, 0, listResult.stderr);
+  const payload = JSON.parse(listResult.stdout);
+  assert.ok(!payload.pages.some((page) => page.pageId === uniquePath));
+});
+
 function run(command, args, cwd, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
