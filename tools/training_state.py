@@ -126,14 +126,97 @@ def session_summary(session: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def ticks_to_seconds(value: int | float | None, tick_ms: int) -> float:
+    if value is None:
+        return 0.0
+    return round((float(value) * tick_ms) / 1000, 1)
+
+
+def normalize_timer_event(event: list[Any], tick_ms: int) -> dict[str, Any] | None:
+    if not isinstance(event, list) or len(event) < 2:
+        return None
+    event_type = event[0]
+    at_tick = event[1]
+    remaining_ticks = event[2] if len(event) > 2 else 0
+    return {
+        "type": str(event_type),
+        "at_seconds": ticks_to_seconds(at_tick, tick_ms),
+        "remaining_seconds": ticks_to_seconds(remaining_ticks, tick_ms),
+    }
+
+
+def normalize_exercise_telemetry(raw: dict[str, Any], tick_ms: int) -> dict[str, Any]:
+    active_windows = [
+        {
+            "start_seconds": ticks_to_seconds(window[0], tick_ms),
+            "end_seconds": ticks_to_seconds(window[1], tick_ms),
+            "duration_seconds": round(
+                max(0.0, ticks_to_seconds(window[1], tick_ms) - ticks_to_seconds(window[0], tick_ms)),
+                1,
+            ),
+        }
+        for window in raw.get("aw", [])
+        if isinstance(window, list) and len(window) == 2
+    ]
+    set_completion_seconds = [ticks_to_seconds(value, tick_ms) for value in raw.get("st", [])]
+    focus_seconds = [ticks_to_seconds(value, tick_ms) for value in raw.get("fc", [])]
+    swap_seconds = [ticks_to_seconds(value, tick_ms) for value in raw.get("swt", [])]
+    completion_events = [
+        {
+            "at_seconds": ticks_to_seconds(event[0], tick_ms),
+            "completed": bool(event[1]),
+        }
+        for event in raw.get("ce", [])
+        if isinstance(event, list) and len(event) == 2
+    ]
+    timer_events = [
+        normalized
+        for normalized in (normalize_timer_event(event, tick_ms) for event in raw.get("ti", []))
+        if normalized
+    ]
+    between_set_elapsed_seconds = [
+        round(set_completion_seconds[index] - set_completion_seconds[index - 1], 1)
+        for index in range(1, len(set_completion_seconds))
+    ]
+    active_total_seconds = round(sum(window["duration_seconds"] for window in active_windows), 1)
+    wall_elapsed_seconds = round(
+        max(0.0, active_windows[-1]["end_seconds"] - active_windows[0]["start_seconds"]),
+        1,
+    ) if active_windows else 0.0
+    final_completion_seconds = next(
+        (event["at_seconds"] for event in reversed(completion_events) if event["completed"]),
+        None,
+    )
+    return {
+        "active_windows": active_windows,
+        "active_total_seconds": active_total_seconds,
+        "wall_elapsed_seconds": wall_elapsed_seconds,
+        "set_completion_seconds": set_completion_seconds,
+        "between_set_elapsed_seconds": between_set_elapsed_seconds,
+        "timer_events": timer_events,
+        "focus_seconds": focus_seconds,
+        "swap_seconds": swap_seconds,
+        "completion_events": completion_events,
+        "swap_count": len(swap_seconds),
+        "reopen_count": sum(1 for event in completion_events if not event["completed"]),
+        "completion_count": sum(1 for event in completion_events if event["completed"]),
+        "final_completion_seconds": final_completion_seconds,
+        "first_active_seconds": active_windows[0]["start_seconds"] if active_windows else None,
+    }
+
+
 def normalize_tl1_log(raw: str) -> dict[str, Any]:
     text = raw.strip()
     if not text.startswith("TL1 "):
         raise ValueError("Expected log to start with 'TL1 '")
 
     payload = json.loads(text[4:])
+    telemetry_meta = payload.get("tm", {}) if isinstance(payload.get("tm"), dict) else {}
+    tick_ms = int(telemetry_meta.get("tk") or 100)
     exercises: list[dict[str, Any]] = []
     for exercise in payload.get("ex", []):
+        raw_telemetry = exercise.get("tm", {}) if isinstance(exercise.get("tm"), dict) else {}
+        telemetry = normalize_exercise_telemetry(raw_telemetry, tick_ms) if raw_telemetry else None
         exercises.append(
             {
                 "step": exercise.get("s"),
@@ -145,7 +228,21 @@ def normalize_tl1_log(raw: str) -> dict[str, Any]:
                 "set_target": exercise.get("st"),
                 "timer_seconds": exercise.get("tt"),
                 "completed": bool(exercise.get("ok")),
+                "telemetry": telemetry,
             }
+        )
+
+    for index, exercise in enumerate(exercises[:-1]):
+        telemetry = exercise.get("telemetry")
+        next_telemetry = exercises[index + 1].get("telemetry")
+        if not telemetry or not next_telemetry:
+            continue
+        current_done = telemetry.get("final_completion_seconds")
+        next_start = next_telemetry.get("first_active_seconds")
+        telemetry["next_exercise_start_gap_seconds"] = (
+            round(max(0.0, next_start - current_done), 1)
+            if current_done is not None and next_start is not None
+            else None
         )
 
     return {
@@ -158,6 +255,10 @@ def normalize_tl1_log(raw: str) -> dict[str, Any]:
         "difficulty": payload.get("d"),
         "notes": payload.get("n", ""),
         "exercise_count": len(exercises),
+        "telemetry": {
+            "schema_version": telemetry_meta.get("v"),
+            "tick_ms": tick_ms,
+        } if telemetry_meta else None,
         "exercises": exercises,
     }
 

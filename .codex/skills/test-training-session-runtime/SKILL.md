@@ -22,6 +22,7 @@ Prefer the in-app browser when available.
    - reopen it and confirm it can be completed again
    - end training
    - copy the log or confirm the expected copy failure state on `file://`
+   - when the log is available, confirm it now carries bounded telemetry in addition to the existing completion summary
 3. Report only real observed behavior, not what the code suggests should happen.
 
 ## Rules

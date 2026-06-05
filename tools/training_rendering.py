@@ -765,12 +765,34 @@ def interactive_training_script() -> str:
         };
       });
 
+      const TELEMETRY_VERSION = 1;
+      const TICK_MS = 100;
+      const MAX_ACTIVE_WINDOWS = 12;
+      const MAX_SET_EVENTS = 24;
+      const MAX_TIMER_EVENTS = 24;
+      const MAX_FOCUS_EVENTS = 16;
+      const MAX_SWAP_EVENTS = 12;
+      const MAX_COMPLETION_EVENTS = 16;
+
       const defaultState = {
         startedAt: null,
         completedAt: null,
         currentExerciseIndex: 0,
         difficulty: "",
         notes: "",
+        telemetry: {
+          version: TELEMETRY_VERSION,
+          tickMs: TICK_MS,
+          exerciseStates: exercises.map(() => ({
+            activeWindows: [],
+            activeWindowOpenAt: null,
+            setCompletedAt: [],
+            timerEvents: [],
+            focusAt: [],
+            swapAt: [],
+            completionEvents: [],
+          })),
+        },
         exerciseStates: exercises.map((exercise) => ({
           variantOrder: exercise.variants.map((_, idx) => idx),
           completedSets: 0,
@@ -805,9 +827,48 @@ def interactive_training_script() -> str:
         completedAt: null,
       });
 
+      const cloneDefaultTelemetryState = () => ({
+        version: TELEMETRY_VERSION,
+        tickMs: TICK_MS,
+        exerciseStates: exercises.map(() => ({
+          activeWindows: [],
+          activeWindowOpenAt: null,
+          setCompletedAt: [],
+          timerEvents: [],
+          focusAt: [],
+          swapAt: [],
+          completionEvents: [],
+        })),
+      });
+
+      const pushBounded = (items, value, maxSize) => {
+        items.push(value);
+        if (items.length > maxSize) {
+          items.splice(0, items.length - maxSize);
+        }
+      };
+
+      const tickFor = (isoValue) => {
+        if (!state.startedAt || !isoValue) return 0;
+        const startMs = new Date(state.startedAt).getTime();
+        const valueMs = new Date(isoValue).getTime();
+        if (!Number.isFinite(startMs) || !Number.isFinite(valueMs)) return 0;
+        return Math.max(0, Math.round((valueMs - startMs) / TICK_MS));
+      };
+
+      const nowIso = () => new Date().toISOString();
+
       const normalizeState = () => {
         if (!Array.isArray(state.exerciseStates)) {
           state.exerciseStates = defaultState.exerciseStates.map((exercise) => ({ ...exercise }));
+        }
+        if (!state.telemetry || typeof state.telemetry !== "object") {
+          state.telemetry = cloneDefaultTelemetryState();
+        }
+        state.telemetry.version = TELEMETRY_VERSION;
+        state.telemetry.tickMs = TICK_MS;
+        if (!Array.isArray(state.telemetry.exerciseStates)) {
+          state.telemetry.exerciseStates = [];
         }
 
         exercises.forEach((exercise, index) => {
@@ -823,9 +884,25 @@ def interactive_training_script() -> str:
           if (existing.timerRemainingSeconds == null) {
             existing.timerRemainingSeconds = exercise.variants[existing.variantOrder[0]].durationSeconds;
           }
+
+          const telemetryState = state.telemetry.exerciseStates[index];
+          if (!telemetryState || typeof telemetryState !== "object") {
+            state.telemetry.exerciseStates[index] = cloneDefaultTelemetryState().exerciseStates[index];
+            return;
+          }
+          if (!Array.isArray(telemetryState.activeWindows)) telemetryState.activeWindows = [];
+          if (!Array.isArray(telemetryState.setCompletedAt)) telemetryState.setCompletedAt = [];
+          if (!Array.isArray(telemetryState.timerEvents)) telemetryState.timerEvents = [];
+          if (!Array.isArray(telemetryState.focusAt)) telemetryState.focusAt = [];
+          if (!Array.isArray(telemetryState.swapAt)) telemetryState.swapAt = [];
+          if (!Array.isArray(telemetryState.completionEvents)) telemetryState.completionEvents = [];
+          if (telemetryState.activeWindowOpenAt !== null && typeof telemetryState.activeWindowOpenAt !== "string") {
+            telemetryState.activeWindowOpenAt = null;
+          }
         });
 
         state.exerciseStates = state.exerciseStates.slice(0, exercises.length);
+        state.telemetry.exerciseStates = state.telemetry.exerciseStates.slice(0, exercises.length);
         if (!Number.isInteger(state.currentExerciseIndex) || state.currentExerciseIndex < 0 || state.currentExerciseIndex >= exercises.length) {
           state.currentExerciseIndex = 0;
         }
@@ -839,6 +916,7 @@ def interactive_training_script() -> str:
       };
 
       const getExerciseState = (index) => state.exerciseStates[index];
+      const getTelemetryState = (index) => state.telemetry.exerciseStates[index];
       const getCurrentVariant = (index) => exercises[index].variants[getExerciseState(index).variantOrder[0]];
       const getAlternativeVariants = (index) => getExerciseState(index).variantOrder.slice(1).map((variantIndex) => ({ variant: exercises[index].variants[variantIndex], variantIndex }));
       const getRemainingTimerSeconds = (index) => {
@@ -847,6 +925,66 @@ def interactive_training_script() -> str:
           return Math.max(0, Math.ceil((exerciseState.timerEndsAt - Date.now()) / 1000));
         }
         return Math.max(0, Number(exerciseState.timerRemainingSeconds || 0));
+      };
+
+      const openActiveWindow = (index, atIso) => {
+        const telemetryState = getTelemetryState(index);
+        if (!telemetryState || telemetryState.activeWindowOpenAt) return;
+        telemetryState.activeWindowOpenAt = atIso;
+      };
+
+      const closeActiveWindow = (index, atIso) => {
+        const telemetryState = getTelemetryState(index);
+        if (!telemetryState || !telemetryState.activeWindowOpenAt) return;
+        const startTick = tickFor(telemetryState.activeWindowOpenAt);
+        const endTick = tickFor(atIso);
+        pushBounded(telemetryState.activeWindows, [startTick, Math.max(startTick, endTick)], MAX_ACTIVE_WINDOWS);
+        telemetryState.activeWindowOpenAt = null;
+      };
+
+      const recordFocus = (index, atIso) => {
+        const telemetryState = getTelemetryState(index);
+        if (!telemetryState) return;
+        pushBounded(telemetryState.focusAt, tickFor(atIso), MAX_FOCUS_EVENTS);
+      };
+
+      const recordSetCompletion = (index, atIso) => {
+        const telemetryState = getTelemetryState(index);
+        if (!telemetryState) return;
+        pushBounded(telemetryState.setCompletedAt, tickFor(atIso), MAX_SET_EVENTS);
+      };
+
+      const recordTimerEvent = (index, eventType, atIso, remainingSeconds) => {
+        const telemetryState = getTelemetryState(index);
+        if (!telemetryState) return;
+        const remainingTicks = remainingSeconds == null ? 0 : Math.max(0, Math.round(Number(remainingSeconds) * 10));
+        pushBounded(telemetryState.timerEvents, [eventType, tickFor(atIso), remainingTicks], MAX_TIMER_EVENTS);
+      };
+
+      const recordSwap = (index, atIso) => {
+        const telemetryState = getTelemetryState(index);
+        if (!telemetryState) return;
+        pushBounded(telemetryState.swapAt, tickFor(atIso), MAX_SWAP_EVENTS);
+      };
+
+      const recordCompletionEvent = (index, completed, atIso) => {
+        const telemetryState = getTelemetryState(index);
+        if (!telemetryState) return;
+        pushBounded(telemetryState.completionEvents, [tickFor(atIso), completed ? 1 : 0], MAX_COMPLETION_EVENTS);
+      };
+
+      const closeAllActiveWindows = (atIso) => {
+        state.telemetry.exerciseStates.forEach((_, index) => closeActiveWindow(index, atIso));
+      };
+
+      const moveFocus = (index, atIso) => {
+        const previousIndex = Number.isInteger(state.currentExerciseIndex) ? state.currentExerciseIndex : null;
+        if (previousIndex !== null && previousIndex !== index) {
+          closeActiveWindow(previousIndex, atIso);
+        }
+        state.currentExerciseIndex = index;
+        openActiveWindow(index, atIso);
+        recordFocus(index, atIso);
       };
 
       const stopOtherTimers = (activeIndex) => {
@@ -861,9 +999,9 @@ def interactive_training_script() -> str:
       const nextIncompleteIndex = () => state.exerciseStates.findIndex((exerciseState) => !exerciseState.completed);
 
       const startSession = (index = nextIncompleteIndex() >= 0 ? nextIncompleteIndex() : 0) => {
-        const now = new Date().toISOString();
+        const now = nowIso();
         if (!state.startedAt) state.startedAt = now;
-        state.currentExerciseIndex = Math.max(0, index);
+        moveFocus(Math.max(0, index), now);
         const exerciseState = getExerciseState(state.currentExerciseIndex);
         if (exerciseState && !exerciseState.startedAt) exerciseState.startedAt = now;
         saveState();
@@ -882,10 +1020,11 @@ def interactive_training_script() -> str:
 
       const focusExercise = (index, scroll = false) => {
         if (!state.startedAt) startSession(index);
-        state.currentExerciseIndex = index;
+        const now = nowIso();
+        moveFocus(index, now);
         const exerciseState = getExerciseState(index);
         if (exerciseState && !exerciseState.startedAt) {
-          exerciseState.startedAt = new Date().toISOString();
+          exerciseState.startedAt = now;
         }
         saveState();
         renderAll();
@@ -899,21 +1038,37 @@ def interactive_training_script() -> str:
         const variant = getCurrentVariant(index);
         if (!variant.setsTotal) return;
         if (!state.startedAt) startSession(index);
+        const now = nowIso();
         exerciseState.completedSets = Math.max(0, Math.min(variant.setsTotal, Number(exerciseState.completedSets || 0) + delta));
         if (exerciseState.completedSets >= variant.setsTotal) {
           exerciseState.completed = true;
-          exerciseState.completedAt = new Date().toISOString();
+          exerciseState.completedAt = now;
           exerciseState.expandedCompleted = false;
           exerciseState.timerEndsAt = null;
+          recordCompletionEvent(index, true, now);
+          closeActiveWindow(index, now);
           advanceCurrentExercise();
           if (state.exerciseStates.every((item) => item.completed)) {
-            state.completedAt = state.completedAt || new Date().toISOString();
+            state.completedAt = state.completedAt || now;
+            closeAllActiveWindows(now);
+          }
+          if (!state.completedAt && state.currentExerciseIndex !== index) {
+            moveFocus(state.currentExerciseIndex, now);
+            const nextState = getExerciseState(state.currentExerciseIndex);
+            if (nextState && !nextState.startedAt) {
+              nextState.startedAt = now;
+            }
           }
         } else if (exerciseState.completed) {
           exerciseState.completed = false;
           exerciseState.completedAt = null;
           state.completedAt = null;
-          state.currentExerciseIndex = index;
+          recordCompletionEvent(index, false, now);
+          moveFocus(index, now);
+        }
+        if (delta > 0) {
+          recordSetCompletion(index, now);
+          openActiveWindow(index, now);
         }
         saveState();
         renderAll();
@@ -924,13 +1079,17 @@ def interactive_training_script() -> str:
         const variant = getCurrentVariant(index);
         if (!variant.durationSeconds) return;
         if (!state.startedAt) startSession(index);
+        const now = nowIso();
         if (exerciseState.timerEndsAt) {
-          exerciseState.timerRemainingSeconds = getRemainingTimerSeconds(index);
+          const remainingSeconds = getRemainingTimerSeconds(index);
+          exerciseState.timerRemainingSeconds = remainingSeconds;
           exerciseState.timerEndsAt = null;
+          recordTimerEvent(index, "pause", now, remainingSeconds);
         } else {
           stopOtherTimers(index);
           const remaining = exerciseState.timerRemainingSeconds ?? variant.durationSeconds;
           exerciseState.timerEndsAt = Date.now() + remaining * 1000;
+          recordTimerEvent(index, "start", now, remaining);
         }
         saveState();
         renderAll();
@@ -939,8 +1098,10 @@ def interactive_training_script() -> str:
       const resetTimer = (index) => {
         const exerciseState = getExerciseState(index);
         const variant = getCurrentVariant(index);
+        const now = nowIso();
         exerciseState.timerEndsAt = null;
         exerciseState.timerRemainingSeconds = variant.durationSeconds;
+        recordTimerEvent(index, "reset", now, variant.durationSeconds);
         saveState();
         renderAll();
       };
@@ -953,23 +1114,34 @@ def interactive_training_script() -> str:
       const markExerciseDone = (index, completed) => {
         const exerciseState = getExerciseState(index);
         if (!state.startedAt) startSession(index);
+        const now = nowIso();
         exerciseState.completed = completed;
-        exerciseState.completedAt = completed ? new Date().toISOString() : null;
+        exerciseState.completedAt = completed ? now : null;
         exerciseState.expandedCompleted = false;
+        recordCompletionEvent(index, completed, now);
         if (completed) {
           exerciseState.timerEndsAt = null;
           if (exerciseState.timerRemainingSeconds == null) {
             exerciseState.timerRemainingSeconds = getCurrentVariant(index).durationSeconds;
           }
+          closeActiveWindow(index, now);
         }
         if (completed) {
           advanceCurrentExercise();
           if (state.exerciseStates.every((item) => item.completed)) {
-            state.completedAt = state.completedAt || new Date().toISOString();
+            state.completedAt = state.completedAt || now;
+            closeAllActiveWindows(now);
+          }
+          if (!state.completedAt && state.currentExerciseIndex !== index) {
+            moveFocus(state.currentExerciseIndex, now);
+            const nextState = getExerciseState(state.currentExerciseIndex);
+            if (nextState && !nextState.startedAt) {
+              nextState.startedAt = now;
+            }
           }
         } else {
           state.completedAt = null;
-          state.currentExerciseIndex = index;
+          moveFocus(index, now);
         }
         saveState();
         renderAll();
@@ -977,6 +1149,7 @@ def interactive_training_script() -> str:
 
       const swapVariant = (index, variantIndex) => {
         const exerciseState = getExerciseState(index);
+        const now = nowIso();
         const order = exerciseState.variantOrder.slice();
         const altPosition = order.indexOf(variantIndex);
         if (altPosition <= 0) return;
@@ -987,7 +1160,8 @@ def interactive_training_script() -> str:
         exerciseState.timerRemainingSeconds = getCurrentVariant(index).durationSeconds;
         exerciseState.completed = false;
         exerciseState.completedAt = null;
-        state.currentExerciseIndex = index;
+        recordSwap(index, now);
+        moveFocus(index, now);
         saveState();
         renderAll();
       };
@@ -1158,6 +1332,7 @@ def interactive_training_script() -> str:
           n: state.notes || "",
           ex: exercises.map((exercise, index) => {
             const exerciseState = getExerciseState(index);
+            const telemetryState = getTelemetryState(index);
             const currentVariant = getCurrentVariant(index);
             return {
               s: exercise.stepNumber,
@@ -1169,9 +1344,24 @@ def interactive_training_script() -> str:
               st: currentVariant.setsTotal || 0,
               tt: currentVariant.durationSeconds || 0,
               ok: exerciseState.completed ? 1 : 0,
+              tm: telemetryState ? {
+                aw: telemetryState.activeWindows,
+                st: telemetryState.setCompletedAt,
+                ti: telemetryState.timerEvents,
+                fc: telemetryState.focusAt,
+                swt: telemetryState.swapAt,
+                ce: telemetryState.completionEvents,
+              } : undefined,
             };
           }),
         };
+
+        if (payload.ex.some((exercise) => exercise.tm)) {
+          payload.tm = {
+            v: TELEMETRY_VERSION,
+            tk: TICK_MS,
+          };
+        }
 
         return `TL1 ${JSON.stringify(payload)}`;
       };
@@ -1259,7 +1449,13 @@ def interactive_training_script() -> str:
       };
 
       const endTraining = (completed) => {
-        state.completedAt = completed ? new Date().toISOString() : null;
+        const now = nowIso();
+        state.completedAt = completed ? now : null;
+        if (completed) {
+          closeAllActiveWindows(now);
+        } else if (Number.isInteger(state.currentExerciseIndex)) {
+          openActiveWindow(state.currentExerciseIndex, now);
+        }
         saveState();
         renderAll();
       };
@@ -1319,6 +1515,12 @@ def interactive_training_script() -> str:
           renderTracker();
         }
       }, 500);
+
+      window.__TRAINING_DEBUG__ = {
+        buildSummary,
+        getState: () => JSON.parse(JSON.stringify(state)),
+        getStorageKey: () => storageKey,
+      };
 
       renderAll();
     })();

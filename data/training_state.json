@@ -46,6 +46,48 @@
           "notes": "Example movement entry."
         }
       ],
+      "telemetry": {
+        "schema_version": 1,
+        "tick_ms": 100,
+        "exercises": [
+          {
+            "active_windows": [
+              {
+                "start_seconds": 0.0,
+                "end_seconds": 4.2,
+                "duration_seconds": 4.2
+              }
+            ],
+            "active_total_seconds": 4.2,
+            "wall_elapsed_seconds": 4.2,
+            "set_completion_seconds": [
+              1.2,
+              2.6,
+              4.0
+            ],
+            "between_set_elapsed_seconds": [
+              1.4,
+              1.4
+            ],
+            "timer_events": [],
+            "focus_seconds": [
+              0.0
+            ],
+            "swap_seconds": [],
+            "completion_events": [
+              {
+                "at_seconds": 4.2,
+                "completed": true
+              }
+            ],
+            "swap_count": 0,
+            "reopen_count": 0,
+            "completion_count": 1,
+            "final_completion_seconds": 4.2,
+            "first_active_seconds": 0.0
+          }
+        ]
+      },
       "next_session_constraints": [
         "Do not repeat the same lower-body pattern with higher load by default."
       ],

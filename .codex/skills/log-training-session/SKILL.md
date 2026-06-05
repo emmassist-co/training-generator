@@ -28,7 +28,7 @@ python3 tools/training_state.py summarize-state
 
 2. Turn the user's message into one structured session object.
 - Normalize vague descriptions into a clean session summary.
-- If the user pasted a compact `TL1 {...}` training log, parse that first and treat its `id` as the primary training reference.
+- If the user pasted a compact `TL1 {...}` training log, parse that first, treat its `id` as the primary training reference, and preserve any telemetry it carries.
 - Capture the body response, constraints, and profile-relevant symptoms for the next session.
 - Capture motivation and adherence signal when present.
 - Capture weight or weigh-in signal when present.
@@ -52,6 +52,7 @@ python3 tools/training_state.py log-session --input /tmp/session.json
 - Preserve signal, not fluff.
 - Keep the stored summary compact and useful for future planning.
 - Preserve `source_training_id` when the workout came from a generated training page or pasted `TL1` log.
+- Preserve telemetry when it is present in a pasted `TL1` log so future planning can inspect timing and adherence patterns.
 - Translate subjective notes into structured constraints when possible.
 - If the user reports pain spikes, instability, unusual fatigue, or clearly worse response, make sure that appears in `next_session_constraints`.
 - If the user reports boredom, confidence gains, dread, or unusually strong enjoyment, store that signal so future plans can adapt.

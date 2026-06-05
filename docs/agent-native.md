@@ -7,7 +7,7 @@ This repo is an agent-native training generator, not just a pile of helper scrip
 - the agent is a first-class operator, not an afterthought
 - the main workflows are exposed as repo-local skills
 - the user and the agent share the same local files for state, config, rendered artifacts, and publish outputs
-- the phone runtime returns a compact machine log, `TL1`, that an agent can parse directly
+- the phone runtime returns a compact machine log, `TL1`, that an agent can parse directly, including bounded interaction telemetry
 
 ## Capability Map
 
@@ -23,7 +23,7 @@ This repo is an agent-native training generator, not just a pile of helper scrip
 | List already-published training pages | `tools/publish_html_to_cloudflare.mjs --list-published`, `npm run html:list-published` |
 | Delete one published training page | `tools/delete_published_training_page.mjs`, `npm run html:delete-published -- --path <page-id>` |
 | Test the interactive training page | `.codex/skills/test-training-session-runtime/` |
-| Parse or validate a copied `TL1` log | `tools/training_state.py validate-tl1`, `npm run state:validate-log` |
+| Parse or validate a copied `TL1` log with telemetry | `tools/training_state.py validate-tl1`, `npm run state:validate-log` |
 | Log a completed workout into local history | `.codex/skills/log-training-session/`, `tools/training_state.py log-session` |
 | Summarize the current shared planning context | `tools/training_state.py summarize-context`, `npm run state:summarize-context` |
 | Read raw local state, profile, or exercise records | `tools/training_state.py read-state`, `read-profile`, `list-exercises`, `read-exercise` |
@@ -62,6 +62,7 @@ This is deliberate. The planning agent should read one shared local file instead
 - The tool layer is still workflow-heavy, not fully primitive-heavy.
 - The runtime HTML itself is still a large template surface, even though the CLI paths are now split into smaller primitives.
 - The phone runtime is shared back to the agent through `TL1`, not live sync.
+- The `TL1` payload now carries bounded timing and adherence telemetry so later planning can learn from real session behavior without adding a backend.
 
 ## Direction
 

@@ -22,6 +22,7 @@ Required fields for each session:
 
 Optional fields:
 - `source_training_id`
+- `telemetry`: bounded timing and adherence telemetry preserved from `TL1` when present
 - `body_weight_kg`
 - `motivation_pre_session`: `high`, `medium`, or `low`
 - `session_enjoyment`: `high`, `medium`, or `low`
@@ -39,7 +40,7 @@ python3 tools/training_state.py summarize-state
 ```
 
 2. Convert the user's free-form description into one structured session object.
-   If the user pasted a compact `TL1 {...}` log from the training page, parse it first and map its `id` into `source_training_id`.
+   If the user pasted a compact `TL1 {...}` log from the training page, parse it first, map its `id` into `source_training_id`, and preserve its telemetry block when present.
 3. Save that object into a temp JSON file.
 4. Append it with:
 

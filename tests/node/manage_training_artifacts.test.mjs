@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
@@ -12,6 +12,7 @@ test("artifact manager can list and delete rendered plans", async () => {
   const htmlPath = path.join(artifactsRoot, `${stem}.html`);
   const pdfPath = path.join(artifactsRoot, `${stem}.pdf`);
 
+  await mkdir(artifactsRoot, { recursive: true });
   await writeFile(htmlPath, "<h1>Artifact Smoke</h1>\n", "utf8");
   await writeFile(pdfPath, "fake pdf bytes\n", "utf8");
 

@@ -15,6 +15,33 @@ test("validate-tl1 parses compact training log", async () => {
   assert.equal(payload.id, "lower-body-strength-a");
   assert.equal(payload.exercise_count, 2);
   assert.equal(payload.exercises[0].swapped, true);
+  assert.equal(payload.telemetry.schema_version, 1);
+  assert.ok(payload.exercises[0].telemetry);
+  assert.ok(Array.isArray(payload.exercises[0].telemetry.active_windows));
+});
+
+test("validate-tl1 remains compatible with logs that have no telemetry block", async () => {
+  const legacyLog = [
+    'TL1 ',
+    JSON.stringify({
+      id: "legacy-session",
+      t: "Legacy Session",
+      u: "https://example.com/training/legacy",
+      sa: "2026-06-01T10:00:00.000Z",
+      ea: "2026-06-01T10:20:00.000Z",
+      d: "right",
+      n: "",
+      ex: [
+        { s: 1, p: "Goblet Squat", a: "Goblet Squat", sw: 0, ps: "3 sets · 8 reps", cs: 3, st: 3, tt: 0, ok: 1 }
+      ]
+    })
+  ].join("");
+  const result = await run("python3", ["./tools/training_state.py", "validate-tl1", "--log", legacyLog], repoRoot);
+  assert.equal(result.exitCode, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.id, "legacy-session");
+  assert.equal(payload.telemetry, null);
+  assert.equal(payload.exercises[0].telemetry, null);
 });
 
 test("summarize-context exposes publish and state context", async () => {
@@ -60,7 +87,18 @@ test("session CRUD works against a local state file", async () => {
         title: "Tempo Lower A",
         source_training_id: "tempo-lower-a",
         difficulty: "right",
-        focus: ["posterior-chain", "conditioning"]
+        focus: ["posterior-chain", "conditioning"],
+        telemetry: {
+          schema_version: 1,
+          tick_ms: 100,
+          exercises: [
+            {
+              active_windows: [{ start_seconds: 0.0, end_seconds: 1.2, duration_seconds: 1.2 }],
+              active_total_seconds: 1.2,
+              wall_elapsed_seconds: 1.2
+            }
+          ]
+        }
       },
       null,
       2
@@ -113,6 +151,8 @@ test("session CRUD works against a local state file", async () => {
   assert.equal(readResult.exitCode, 0, readResult.stderr);
   const session = JSON.parse(readResult.stdout);
   assert.equal(session.notes, "Bike felt stronger.");
+  assert.equal(session.telemetry.schema_version, 1);
+  assert.equal(session.telemetry.exercises[0].active_total_seconds, 1.2);
 
   const deleteResult = await run(
     "python3",

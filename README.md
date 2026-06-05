@@ -17,7 +17,7 @@ This repo is designed to be agent-native.
 
 - the main operator workflows are exposed as repo-local skills
 - the durable truth is mostly files the user and agent both share
-- the phone page emits a compact `TL1` log an agent can parse directly
+- the phone page emits a compact `TL1` log an agent can parse directly, including bounded session telemetry for later analysis
 - publish state stays user-owned in local config and the user's Cloudflare account
 
 The capability map is:
@@ -68,7 +68,7 @@ npm run html:publish:dry-run -- --title "Smoke Session"
 
 Concrete example files live in [`examples/`](./examples):
 - [`lower-body-strength-a.session.json`](./examples/lower-body-strength-a.session.json): structured session payload the renderer consumes
-- [`completed-session-log.txt`](./examples/completed-session-log.txt): compact `TL1` log copied back from the phone page after training
+- [`completed-session-log.txt`](./examples/completed-session-log.txt): compact `TL1` log copied back from the phone page after training, including bounded telemetry
 - [`upper-body-strength-b.session.json`](./examples/upper-body-strength-b.session.json): upper-body push-pull strength day with a swap-ready row alternative
 - [`upper-body-strength-b.completed-log.txt`](./examples/upper-body-strength-b.completed-log.txt): matching `TL1` log for that upper-body session
 - [`conditioning-circuit.session.json`](./examples/conditioning-circuit.session.json): timed conditioning example that exercises the timer path
@@ -79,7 +79,7 @@ That example flow is:
 2. The renderer turns it into an interactive HTML training page.
 3. The publisher gives it a public Cloudflare URL plus QR code.
 4. The athlete completes the session on phone.
-5. The page emits a compact `TL1` log.
+5. The page emits a compact `TL1` log with completion data plus bounded telemetry.
 6. A logging skill stores that back into local state.
 
 Render the example session locally:
@@ -212,7 +212,7 @@ The intended operator flow is:
 4. complete it and copy the compact `TL1` log
 5. paste that log back into chat to update local state
 
-The copied log is intentionally token-light. It is meant for an LLM or skill to parse directly, not for a human to read as a report.
+The copied log is intentionally token-light. It is meant for an LLM or skill to parse directly, not for a human to read as a report. The telemetry it carries is bounded on purpose so the copy-back flow stays lightweight.
 
 ## Try These Prompts
 
@@ -250,6 +250,7 @@ That means the user and the agent can inspect the same state without a hidden ba
 - public product surface
 - config/init scaffolding
 - publish dry-run behavior
+- rendered runtime telemetry behavior
 
 It does not require:
 - live AI access
