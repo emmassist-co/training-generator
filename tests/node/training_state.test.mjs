@@ -106,6 +106,18 @@ test("validate-tl1 remains compatible with logs that have no telemetry block", a
   assert.equal(payload.exercises[0].telemetry, null);
 });
 
+test("tl1-to-session produces a reusable session seed", async () => {
+  const result = await run("python3", ["./tools/training_state.py", "tl1-to-session", "--input", "./examples/completed-session-log.txt"], repoRoot);
+  assert.equal(result.exitCode, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.source_training_id, "lower-body-strength-a");
+  assert.equal(payload.date, "2026-06-03");
+  assert.equal(payload.duration_min, 42);
+  assert.equal(payload.telemetry.schema, "TL1");
+  assert.equal(payload.exercises[0].swap_from, "Barbell Hip Thrust");
+  assert.equal(payload.exercises[0].telemetry.swap_count, 1);
+});
+
 test("summarize-context exposes publish and state context", async () => {
   const result = await run("python3", ["./tools/training_state.py", "summarize-context"], repoRoot);
   assert.equal(result.exitCode, 0, result.stderr);
@@ -226,6 +238,83 @@ test("session CRUD works against a local state file", async () => {
   const deleted = JSON.parse(deleteResult.stdout);
   assert.equal(deleted.session.session_id, logged.session_id);
   assert.equal(deleted.session_count, 0);
+});
+
+test("evaluate-plan checks history references and planning best practices", async () => {
+  const stateRoot = await mkdtemp(path.join(tmpdir(), "training-generator-eval-"));
+  const statePath = path.join(stateRoot, "training-state.json");
+  const seedState = JSON.parse(await readFile(path.join(repoRoot, "data", "training_state.json"), "utf8"));
+  await writeFile(statePath, JSON.stringify(seedState, null, 2), "utf8");
+
+  const sessionsResult = await run("python3", ["./tools/training_state.py", "list-sessions", "--limit", "1"], repoRoot, {
+    TRAINING_GENERATOR_STATE_PATH: statePath
+  });
+  assert.equal(sessionsResult.exitCode, 0, sessionsResult.stderr);
+  const [latestSession] = JSON.parse(sessionsResult.stdout);
+  assert.ok(latestSession.session_id);
+
+  const planPath = path.join(stateRoot, "plan.json");
+  await writeFile(
+    planPath,
+    JSON.stringify(
+      {
+        title: "Posterior Chain Reset",
+        goal: "Controlled posterior-chain work that avoids pushing the same lower-body pattern harder.",
+        notes: [
+          "Keep the dose controlled instead of repeating the same lower-body load jump.",
+          "Use this as a confidence-building bridge off the last session."
+        ],
+        planning_context: {
+          recent_sessions_considered: [latestSession.session_id],
+          influences: [
+            {
+              source_session_id: latestSession.session_id,
+              observation: "The last session already covered lower-body strength with goblet squat and RDL work.",
+              adjustment: "Keep this session controlled, stay posterior-chain biased, and avoid a higher-load repeat of the same pattern."
+            }
+          ]
+        },
+        exercises: [
+          {
+            name: "Barbell Hip Thrust",
+            sets: 4,
+            reps: 8,
+            rest_seconds: 90,
+            classification: "favorable",
+            reason: "Posterior-chain emphasis without pushing the same squat stressor.",
+            alternatives: [
+              {
+                name: "Barbell Glute Bridge",
+                sets: 4,
+                reps: 8,
+                rest_seconds: 90
+              }
+            ]
+          },
+          {
+            name: "Ball Leg Curl",
+            sets: 3,
+            reps: 10,
+            rest_seconds: 60,
+            classification: "favorable",
+            reason: "Keeps knee loading controlled while building hamstring tolerance.",
+            alternatives: []
+          }
+        ]
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+
+  const evalResult = await run("python3", ["./tools/training_state.py", "evaluate-plan", "--input", planPath], repoRoot, {
+    TRAINING_GENERATOR_STATE_PATH: statePath
+  });
+  assert.equal(evalResult.exitCode, 0, evalResult.stderr);
+  const payload = JSON.parse(evalResult.stdout);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.score.passed, payload.score.total);
 });
 
 function run(command, args, cwd, extraEnv = {}) {

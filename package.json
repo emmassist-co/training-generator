@@ -28,7 +28,9 @@
     "state:list-exercises": "python3 ./tools/training_state.py list-exercises",
     "state:read-exercise": "python3 ./tools/training_state.py read-exercise",
     "state:summarize-context": "python3 ./tools/training_state.py summarize-context",
-    "state:validate-log": "python3 ./tools/training_state.py validate-tl1"
+    "state:validate-log": "python3 ./tools/training_state.py validate-tl1",
+    "state:tl1-to-session": "python3 ./tools/training_state.py tl1-to-session",
+    "state:eval-plan": "python3 ./tools/training_state.py evaluate-plan"
   },
   "dependencies": {
     "playwright": "1.60.0",

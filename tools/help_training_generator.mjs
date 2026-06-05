@@ -5,7 +5,7 @@ const payload = {
     {
       name: "Plan a session",
       skill: "create-training-plan",
-      command: null,
+      command: "npm run state:eval-plan -- --input /absolute/path/to/session.json",
       prompt: "Generate my next training session from my local state.",
     },
     {
@@ -56,6 +56,7 @@ const payload = {
     "Stage this training page locally, then deploy the site when I say go.",
     "Open the latest rendered plan and test the workout interactions.",
     "Here is a TL1 training log. Log it and tell me what it means for the next session.",
+    "Evaluate this generated session JSON against my saved history before I use it.",
     "Show me the active profile, recent sessions, and Cloudflare publish context.",
     "List the published training pages in this workspace.",
     "Delete an old published page and remove its matching local artifacts.",

@@ -47,6 +47,18 @@ Recommended plan JSON shape:
   "title": "Lower Body Strength A",
   "subtitle": "Phone-first gym session",
   "goal": "posterior-chain strength and low-impact conditioning",
+  "planning_context": {
+    "recent_sessions_considered": [
+      "2026-06-01-session-abc123"
+    ],
+    "influences": [
+      {
+        "source_session_id": "2026-06-01-session-abc123",
+        "observation": "The last lower-body day already stressed the squat pattern.",
+        "adjustment": "Keep this session posterior-chain dominant and avoid pushing the same pattern harder."
+      }
+    ]
+  },
   "duration": "45 minutes",
   "motivation_focus": "Keep the session simple and confidence-building.",
   "monitor": [

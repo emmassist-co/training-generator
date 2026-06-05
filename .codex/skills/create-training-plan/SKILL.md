@@ -60,8 +60,15 @@ python3 tools/training_state.py search-exercises --include-muscles quadriceps ad
 - exercise progression or stagnation,
 - boredom and exercise variety.
 7. Convert the final plan into a structured JSON handoff and render the mobile HTML artifact.
-8. Make sure the plan title is short and human-readable so the published URL keeps the session name or day.
-9. If the user approves the plan for sharing or phone use, publish the HTML artifact to Cloudflare and return both the public URL and QR code.
+8. Run the deterministic preflight before finalizing the draft:
+
+```bash
+python3 tools/training_state.py evaluate-plan --input /tmp/plan.json
+```
+
+9. If the eval fails, fix the plan JSON before rendering or presenting it.
+10. Make sure the plan title is short and human-readable so the published URL keeps the session name or day.
+11. If the user approves the plan for sharing or phone use, publish the HTML artifact to Cloudflare and return both the public URL and QR code.
 
 ## Planning Rules
 
@@ -92,6 +99,7 @@ When relevant, also include:
 - progression from the last similar session,
 - why this session helps both fitness and weight trend,
 - one motivation lever such as simplicity, novelty, or a confidence-building win.
+- `planning_context` with the recent session ids you considered and the concrete adjustments they caused in this plan.
 
 When useful, classify each exercise as:
 - favorable,
@@ -114,9 +122,11 @@ Do not stop after writing the plan in chat.
 
 1. Create a plan JSON file for the renderer.
    Every main exercise and every alternative should be explicit about prescription, not just named.
+   Include `planning_context.recent_sessions_considered` and `planning_context.influences` so the eval can confirm the plan actually used history.
 2. Run:
 
 ```bash
+python3 tools/training_state.py evaluate-plan --input /tmp/plan.json
 python3 tools/render_training_plan.py --input /tmp/plan.json --output output/training-plans/<slug>.html
 ```
 

@@ -32,6 +32,8 @@ test("package metadata is generic", async () => {
   assert.ok(pkg.scripts["state:list-exercises"]);
   assert.ok(pkg.scripts["state:summarize-context"]);
   assert.ok(pkg.scripts["state:validate-log"]);
+  assert.ok(pkg.scripts["state:tl1-to-session"]);
+  assert.ok(pkg.scripts["state:eval-plan"]);
 });
 
 test("agent-native architecture doc exists", async () => {

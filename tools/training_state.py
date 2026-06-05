@@ -336,6 +336,156 @@ def primitive_exercise_summary(exercise: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def tokenize(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", text.lower())
+        if len(token) >= 4 and token not in {"with", "that", "this", "from", "into", "than", "then", "have"}
+    }
+
+
+def extract_constraint_tokens(state: dict[str, Any], recent_limit: int) -> set[str]:
+    tokens: set[str] = set()
+    for session in recent_sessions(state, recent_limit):
+        for constraint in session.get("next_session_constraints", []):
+            tokens.update(tokenize(constraint))
+    return tokens
+
+
+def plan_text_blob(plan: dict[str, Any]) -> str:
+    chunks = [
+        str(plan.get("title", "")),
+        str(plan.get("subtitle", "")),
+        str(plan.get("goal", "")),
+        " ".join(plan.get("monitor", [])),
+        " ".join(plan.get("notes", [])),
+    ]
+    for exercise in plan.get("exercises", []):
+        chunks.extend(
+            [
+                str(exercise.get("name", "")),
+                str(exercise.get("classification", "")),
+                str(exercise.get("reason", "")),
+                " ".join(exercise.get("execution_notes", [])),
+            ]
+        )
+        for alternative in exercise.get("alternatives", []):
+            chunks.extend([str(alternative.get("name", "")), str(alternative.get("note", ""))])
+    planning_context = plan.get("planning_context", {})
+    if isinstance(planning_context, dict):
+        for influence in planning_context.get("influences", []):
+            if not isinstance(influence, dict):
+                continue
+            chunks.extend(
+                [
+                    str(influence.get("observation", "")),
+                    str(influence.get("adjustment", "")),
+                ]
+            )
+    return " ".join(chunks)
+
+
+def has_prescription(item: dict[str, Any]) -> bool:
+    has_volume = item.get("reps") is not None or item.get("duration") is not None or item.get("duration_seconds") is not None
+    has_sets = item.get("sets") is not None
+    has_rest = item.get("rest_seconds") is not None
+    return has_sets and has_volume and has_rest
+
+
+def evaluate_plan_against_state(plan: dict[str, Any], state: dict[str, Any], recent_limit: int) -> dict[str, Any]:
+    ensure_session_ids(state)
+    recent = recent_sessions(state, recent_limit)
+    recent_ids = {session.get("session_id") for session in recent if session.get("session_id")}
+    planning_context = plan.get("planning_context", {}) if isinstance(plan.get("planning_context"), dict) else {}
+    recent_sessions_considered = planning_context.get("recent_sessions_considered", [])
+    influences = planning_context.get("influences", [])
+    exercises = plan.get("exercises", [])
+    recent_constraint_tokens = extract_constraint_tokens(state, recent_limit)
+    plan_tokens = tokenize(plan_text_blob(plan))
+
+    checks: list[dict[str, Any]] = []
+
+    def add_check(check_id: str, ok: bool, detail: str) -> None:
+        checks.append({"id": check_id, "ok": ok, "detail": detail})
+
+    references_recent = bool(recent_ids) and any(session_id in recent_ids for session_id in recent_sessions_considered)
+    influences_complete = (
+        isinstance(influences, list)
+        and bool(influences)
+        and all(
+            isinstance(influence, dict)
+            and influence.get("source_session_id") in recent_sessions_considered
+            and bool(str(influence.get("observation", "")).strip())
+            and bool(str(influence.get("adjustment", "")).strip())
+            for influence in influences
+        )
+    )
+
+    add_check(
+        "history-available",
+        bool(recent),
+        "Recent training history exists in local state." if recent else "No recent sessions found in local state.",
+    )
+    add_check(
+        "planning-context-present",
+        bool(planning_context),
+        "Plan includes explicit planning_context." if planning_context else "Plan is missing planning_context.",
+    )
+    add_check(
+        "recent-sessions-referenced",
+        references_recent,
+        "planning_context references at least one real recent session."
+        if references_recent
+        else "planning_context does not reference a recent session_id from local state.",
+    )
+    add_check(
+        "history-influences-present",
+        influences_complete,
+        "History influences include source session ids plus observation and adjustment."
+        if influences_complete
+        else "History influences are missing or incomplete.",
+    )
+    add_check(
+        "primary-exercises-have-prescription",
+        bool(exercises) and all(has_prescription(exercise) for exercise in exercises),
+        "Every primary exercise has sets, reps or duration, and rest."
+        if bool(exercises) and all(has_prescription(exercise) for exercise in exercises)
+        else "At least one primary exercise is missing sets, reps or duration, or rest.",
+    )
+    add_check(
+        "alternatives-have-prescription",
+        all(
+            all(has_prescription(alternative) for alternative in exercise.get("alternatives", []))
+            for exercise in exercises
+        ),
+        "Every alternative exercise has sets, reps or duration, and rest."
+        if all(all(has_prescription(alternative) for alternative in exercise.get("alternatives", [])) for exercise in exercises)
+        else "At least one alternative exercise is missing sets, reps or duration, or rest.",
+    )
+    add_check(
+        "exercise-rationale-present",
+        bool(exercises) and all(exercise.get("classification") and exercise.get("reason") for exercise in exercises),
+        "Every primary exercise includes classification and reason."
+        if bool(exercises) and all(exercise.get("classification") and exercise.get("reason") for exercise in exercises)
+        else "At least one primary exercise is missing classification or reason.",
+    )
+    add_check(
+        "recent-constraints-reflected",
+        not recent_constraint_tokens or bool(recent_constraint_tokens & plan_tokens),
+        "Recent session constraints are reflected in the plan text."
+        if not recent_constraint_tokens or bool(recent_constraint_tokens & plan_tokens)
+        else "Plan text does not appear to reflect saved next-session constraints.",
+    )
+
+    passed = sum(1 for check in checks if check["ok"])
+    return {
+        "ok": passed == len(checks),
+        "score": {"passed": passed, "total": len(checks)},
+        "recent_session_ids": sorted(recent_ids),
+        "checks": checks,
+    }
+
+
 def normalize(text: str) -> str:
     return text.lower().replace("_", " ").strip()
 
@@ -626,6 +776,17 @@ def cmd_validate_tl1(args: argparse.Namespace) -> None:
     print(json.dumps(normalize_tl1_log(raw), indent=2))
 
 
+def cmd_tl1_to_session(args: argparse.Namespace) -> None:
+    raw = Path(args.input).read_text() if args.input else args.log
+    print(json.dumps(tl1_log_to_session_seed(normalize_tl1_log(raw)), indent=2))
+
+
+def cmd_evaluate_plan(args: argparse.Namespace) -> None:
+    state = load_state()
+    plan = json.loads(Path(args.input).read_text())
+    print(json.dumps(evaluate_plan_against_state(plan, state, args.history_limit), indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Training state helper")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -689,6 +850,17 @@ def build_parser() -> argparse.ArgumentParser:
     validate_group.add_argument("--input")
     validate_group.add_argument("--log")
     validate_tl1.set_defaults(func=cmd_validate_tl1)
+
+    tl1_to_session = subparsers.add_parser("tl1-to-session")
+    tl1_group = tl1_to_session.add_mutually_exclusive_group(required=True)
+    tl1_group.add_argument("--input")
+    tl1_group.add_argument("--log")
+    tl1_to_session.set_defaults(func=cmd_tl1_to_session)
+
+    evaluate_plan = subparsers.add_parser("evaluate-plan")
+    evaluate_plan.add_argument("--input", required=True)
+    evaluate_plan.add_argument("--history-limit", type=int, default=3)
+    evaluate_plan.set_defaults(func=cmd_evaluate_plan)
 
     return parser
 
