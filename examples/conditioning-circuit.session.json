@@ -1,0 +1,56 @@
+{
+  "title": "Conditioning Circuit",
+  "subtitle": "28-minute bike and carry session",
+  "exercises": [
+    {
+      "exercise_id": "Air_Bike",
+      "name": "Air Bike",
+      "sets": 5,
+      "duration": "60s",
+      "rest_seconds": 45,
+      "load": "hard but repeatable",
+      "classification": "conditioning",
+      "reason": "Short repeatable effort where the timer matters more than reps.",
+      "execution_notes": [
+        "Build in the first 10 seconds, then hold a strong pace.",
+        "Breathe down during the rest block before the next round."
+      ],
+      "alternatives": [
+        {
+          "exercise_id": "Recumbent_Bike",
+          "name": "Recumbent Bike",
+          "sets": 5,
+          "duration": "60s",
+          "rest_seconds": 45,
+          "load": "hard but repeatable",
+          "note": "Use this if the air bike is unavailable."
+        }
+      ]
+    },
+    {
+      "exercise_id": "Farmers_Walk",
+      "name": "Farmer's Walk",
+      "sets": 4,
+      "duration": "40s",
+      "rest_seconds": 50,
+      "load": "heavy enough to challenge grip",
+      "classification": "conditioning",
+      "reason": "Loaded carry that keeps the timer path active and easy to track on phone.",
+      "execution_notes": [
+        "Walk tall and keep the ribs down.",
+        "If space is tight, turn carefully rather than rushing."
+      ],
+      "alternatives": [
+        {
+          "exercise_id": "Rickshaw_Carry",
+          "name": "Rickshaw Carry",
+          "sets": 4,
+          "duration": "40s",
+          "rest_seconds": 50,
+          "load": "heavy enough to challenge grip",
+          "note": "Use this if the gym has a loaded carry station."
+        }
+      ]
+    }
+  ]
+}

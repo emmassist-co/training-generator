@@ -41,6 +41,11 @@ This repo is a generic training generator, not a single-condition product.
 
 The current example data in this repo comes from a rehab-oriented use case, but that is example input, not the public product identity.
 
+If you want to adapt it to your own style or sport, the fastest path is:
+- replace the example sessions under `examples/`
+- edit `data/local/training-state.json` with your own profile, goals, and history
+- add or adjust repo-local skills under `.codex/skills/` to change how the agent plans, publishes, or logs sessions
+
 ## Quick Start
 
 ```bash
@@ -64,6 +69,10 @@ npm run html:publish:dry-run -- --title "Smoke Session"
 Concrete example files live in [`examples/`](./examples):
 - [`lower-body-strength-a.session.json`](./examples/lower-body-strength-a.session.json): structured session payload the renderer consumes
 - [`completed-session-log.txt`](./examples/completed-session-log.txt): compact `TL1` log copied back from the phone page after training
+- [`upper-body-strength-b.session.json`](./examples/upper-body-strength-b.session.json): upper-body push-pull strength day with a swap-ready row alternative
+- [`upper-body-strength-b.completed-log.txt`](./examples/upper-body-strength-b.completed-log.txt): matching `TL1` log for that upper-body session
+- [`conditioning-circuit.session.json`](./examples/conditioning-circuit.session.json): timed conditioning example that exercises the timer path
+- [`conditioning-circuit.completed-log.txt`](./examples/conditioning-circuit.completed-log.txt): matching `TL1` log for the timed circuit
 
 That example flow is:
 1. AI or a skill generates the session JSON.
@@ -77,6 +86,8 @@ Render the example session locally:
 
 ```bash
 npm run render:html -- --input examples/lower-body-strength-a.session.json --output output/training-plans/lower-body-strength-a.html
+npm run render:html -- --input examples/upper-body-strength-b.session.json --output output/training-plans/upper-body-strength-b.html
+npm run render:html -- --input examples/conditioning-circuit.session.json --output output/training-plans/conditioning-circuit.html
 ```
 
 ## Cloudflare Setup

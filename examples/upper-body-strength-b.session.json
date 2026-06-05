@@ -1,0 +1,56 @@
+{
+  "title": "Upper Body Strength B",
+  "subtitle": "50-minute push-pull session",
+  "exercises": [
+    {
+      "exercise_id": "Dumbbell_Bench_Press",
+      "name": "Dumbbell Bench Press",
+      "sets": 4,
+      "reps": 6,
+      "rest_seconds": 105,
+      "load": "challenging but smooth",
+      "classification": "strength",
+      "reason": "Heavy horizontal press with a stable setup and simple progression.",
+      "execution_notes": [
+        "Lower with control and pause briefly at the bottom.",
+        "Leave 1 to 2 reps in reserve on every set."
+      ],
+      "alternatives": [
+        {
+          "exercise_id": "Dumbbell_Bench_Press_with_Neutral_Grip",
+          "name": "Dumbbell Bench Press with Neutral Grip",
+          "sets": 4,
+          "reps": 6,
+          "rest_seconds": 105,
+          "load": "challenging but smooth",
+          "note": "Use this if shoulders feel better with a neutral hand position."
+        }
+      ]
+    },
+    {
+      "exercise_id": "Seated_Cable_Rows",
+      "name": "Seated Cable Rows",
+      "sets": 4,
+      "reps": 8,
+      "rest_seconds": 75,
+      "load": "moderate",
+      "classification": "strength",
+      "reason": "Simple horizontal pull to balance the pressing volume.",
+      "execution_notes": [
+        "Drive elbows back without shrugging.",
+        "Pause the squeeze for one beat."
+      ],
+      "alternatives": [
+        {
+          "exercise_id": "One-Arm_Dumbbell_Row",
+          "name": "One-Arm Dumbbell Row",
+          "sets": 4,
+          "reps": 8,
+          "rest_seconds": 75,
+          "load": "moderate",
+          "note": "Use this if the cable station is busy."
+        }
+      ]
+    }
+  ]
+}
