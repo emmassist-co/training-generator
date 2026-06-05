@@ -37,6 +37,39 @@ test("publisher uses local config for dry-run", async () => {
   assert.match(payload.pageUrl, /https:\/\/demo-training\.pages\.dev\/sessions\//);
 });
 
+test("publisher can list published pages from local site tree", async () => {
+  const cwd = path.resolve(new URL("../..", import.meta.url).pathname);
+  const uniquePath = `test-list-${Date.now()}`;
+
+  const publishResult = await run(
+    "node",
+    [
+      "./tools/publish_html_to_cloudflare.mjs",
+      "--dry-run",
+      "--section",
+      "test-pages",
+      "--path",
+      uniquePath,
+      "--title",
+      "List Test",
+      "--html",
+      "<h1>List Test</h1>"
+    ],
+    cwd
+  );
+  assert.equal(publishResult.exitCode, 0, publishResult.stderr);
+
+  const listResult = await run(
+    "node",
+    ["./tools/publish_html_to_cloudflare.mjs", "--list-published", "--section", "test-pages"],
+    cwd
+  );
+  assert.equal(listResult.exitCode, 0, listResult.stderr);
+  const payload = JSON.parse(listResult.stdout);
+  assert.equal(Array.isArray(payload.pages), true);
+  assert.ok(payload.pages.some((page) => page.pageId === uniquePath));
+});
+
 function run(command, args, cwd, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {

@@ -25,6 +25,24 @@ test("summarize-context exposes publish and state context", async () => {
   assert.ok(typeof payload.state.using_example_state === "boolean");
 });
 
+test("read-profile exposes profile and preferences", async () => {
+  const result = await run("python3", ["./tools/training_state.py", "read-profile"], repoRoot);
+  assert.equal(result.exitCode, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.ok(payload.profile);
+  assert.ok(payload.preferences);
+});
+
+test("list-exercises returns primitive exercise summaries", async () => {
+  const result = await run("python3", ["./tools/training_state.py", "list-exercises", "--limit", "3"], repoRoot);
+  assert.equal(result.exitCode, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(Array.isArray(payload), true);
+  assert.equal(payload.length, 3);
+  assert.ok(payload[0].id);
+  assert.ok(!("instructions" in payload[0]));
+});
+
 function run(command, args, cwd, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {

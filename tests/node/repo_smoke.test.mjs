@@ -26,6 +26,8 @@ test("example session artifacts exist", async () => {
 test("agent-native skills exist", async () => {
   const renderSkill = await readFile(new URL("../../.codex/skills/render-training-artifacts/SKILL.md", import.meta.url), "utf8");
   const runtimeSkill = await readFile(new URL("../../.codex/skills/test-training-session-runtime/SKILL.md", import.meta.url), "utf8");
+  const discoverSkill = await readFile(new URL("../../.codex/skills/discover-training-workflows/SKILL.md", import.meta.url), "utf8");
   assert.match(renderSkill, /render existing training session JSON/i);
   assert.match(runtimeSkill, /smoke-test the interactive workout runtime/i);
+  assert.match(discoverSkill, /what the repo can do/i);
 });

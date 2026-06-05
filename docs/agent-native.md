@@ -13,13 +13,16 @@ This repo is an agent-native training generator, not just a pile of helper scrip
 
 | Outcome | Repo surface |
 |---|---|
+| Discover the main workflows and prompts | `.codex/skills/discover-training-workflows/`, `tools/help_training_generator.mjs`, `npm run help` |
 | Plan the next session from local history | `.codex/skills/create-training-plan/` |
 | Render session JSON into HTML or PDF | `.codex/skills/render-training-artifacts/`, `tools/render_training_plan.py`, `npm run render:html`, `npm run plan:pdf` |
 | Publish a session page to the user's Cloudflare Pages site | `.codex/skills/publish-html-to-cloudflare/`, `tools/publish_html_to_cloudflare.mjs`, `npm run html:publish` |
+| List already-published training pages | `tools/publish_html_to_cloudflare.mjs --list-published`, `npm run html:list-published` |
 | Test the interactive training page | `.codex/skills/test-training-session-runtime/` |
 | Parse or validate a copied `TL1` log | `tools/training_state.py validate-tl1`, `npm run state:validate-log` |
 | Log a completed workout into local history | `.codex/skills/log-training-session/`, `tools/training_state.py log-session` |
 | Summarize the current shared planning context | `tools/training_state.py summarize-context`, `npm run state:summarize-context` |
+| Read raw local state, profile, or exercise records | `tools/training_state.py read-state`, `read-profile`, `list-exercises`, `read-exercise` |
 
 ## Shared Workspace
 

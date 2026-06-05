@@ -39,10 +39,6 @@ async function main() {
     process.env.CLOUDFLARE_PAGES_PROJECT ??
     workspaceConfig.pagesProject ??
     defaultProjectName;
-  const rawHtml = await loadHtml(options);
-  const resolvedTitle =
-    options.title ?? extractHtmlTitle(rawHtml) ?? deriveTitleFromHtmlFile(options.htmlFile) ?? "training-session";
-  const pageId = options.pathSegment ?? buildPagePathSegment(resolvedTitle, options.slug);
   const section = sanitizePathSegment(
     options.section ??
     workspaceConfig.pagesSection ??
@@ -51,13 +47,36 @@ async function main() {
   const baseUrl =
     process.env.CLOUDFLARE_PAGES_BASE_URL?.trim() ||
     workspaceConfig.pagesBaseUrl?.trim() ||
-    (options.dryRun ? `https://${projectName}.pages.dev` : await resolveProductionBaseUrl(projectName));
+    `https://${projectName}.pages.dev`;
+
+  if (options.listPublished) {
+    const pages = await collectPublishedPages(baseUrl, options.section ? section : null);
+    console.log(
+      JSON.stringify(
+        {
+          projectName,
+          section: options.section ? section : null,
+          baseUrl,
+          pages,
+        },
+        null,
+        2
+      )
+    );
+    return;
+  }
+
+  const rawHtml = await loadHtml(options);
+  const resolvedTitle =
+    options.title ?? extractHtmlTitle(rawHtml) ?? deriveTitleFromHtmlFile(options.htmlFile) ?? "training-session";
+  const pageId = options.pathSegment ?? buildPagePathSegment(resolvedTitle, options.slug);
+  const publishBaseUrl = options.dryRun ? baseUrl : await resolveProductionBaseUrl(projectName);
   const relativePagePath = path.join(section, pageId);
   const pageDir = path.join(siteRoot, relativePagePath);
   const indexPath = path.join(pageDir, "index.html");
   const qrCodePath = path.join(pageDir, "qr.png");
   const outputCapturePath = path.join(pagesOutputDir, `${pageId}.ndjson`);
-  const pageUrl = `${baseUrl}/${toUrlPath(relativePagePath)}/`;
+  const pageUrl = `${publishBaseUrl}/${toUrlPath(relativePagePath)}/`;
 
   await mkdir(pageDir, { recursive: true });
   await mkdir(pagesOutputDir, { recursive: true });
@@ -74,7 +93,7 @@ async function main() {
       light: "#ffffffff",
     },
   });
-  await refreshIndexPage(baseUrl);
+  await refreshIndexPage(publishBaseUrl);
 
   if (options.dryRun) {
     console.log(
@@ -86,7 +105,7 @@ async function main() {
           pageId,
           pageUrl,
           qrCodePath,
-          baseUrl,
+          baseUrl: publishBaseUrl,
           configPath: workspaceConfig.__configPath ?? null,
           siteRoot,
           outputCapturePath,
@@ -138,7 +157,7 @@ async function main() {
     pageId,
     pageUrl,
     qrCodePath,
-    baseUrl,
+    baseUrl: publishBaseUrl,
     configPath: workspaceConfig.__configPath ?? null,
     deploymentUrl,
     siteRoot,
@@ -190,6 +209,10 @@ function parseArgs(argv) {
     }
     if (arg === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+    if (arg === "--list-published") {
+      options.listPublished = true;
       continue;
     }
     if (arg === "--project") {
@@ -395,29 +418,7 @@ function buildSortableId(date = new Date()) {
 }
 
 async function refreshIndexPage(baseUrl) {
-  const entries = await readdir(siteRoot, { withFileTypes: true }).catch(() => []);
-  const rootDirs = entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort()
-    .reverse();
-
-  const groupedPages = [];
-  for (const dirName of rootDirs) {
-    const childEntries = await readdir(path.join(siteRoot, dirName), {
-      withFileTypes: true,
-    }).catch(() => []);
-    const pageItems = childEntries
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name)
-      .sort()
-      .reverse();
-
-    groupedPages.push({
-      dirName,
-      pageItems,
-    });
-  }
+  const groupedPages = await collectPublishedGroups();
 
   const items = groupedPages
     .map(({ dirName, pageItems }) => {
@@ -506,6 +507,54 @@ ${items || "        <li>No pages published yet.</li>"}
   await writeFile(path.join(siteRoot, "index.html"), html, "utf8");
 }
 
+async function collectPublishedGroups() {
+  const entries = await readdir(siteRoot, { withFileTypes: true }).catch(() => []);
+  const rootDirs = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort()
+    .reverse();
+
+  const groupedPages = [];
+  for (const dirName of rootDirs) {
+    const childEntries = await readdir(path.join(siteRoot, dirName), {
+      withFileTypes: true,
+    }).catch(() => []);
+    const pageItems = childEntries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+      .reverse();
+
+    groupedPages.push({
+      dirName,
+      pageItems,
+    });
+  }
+
+  return groupedPages;
+}
+
+async function collectPublishedPages(baseUrl, sectionFilter = null) {
+  const groups = await collectPublishedGroups();
+  const pages = [];
+  for (const group of groups) {
+    if (sectionFilter && group.dirName !== sectionFilter) continue;
+    for (const pageId of group.pageItems) {
+      const relativePagePath = path.join(group.dirName, pageId);
+      pages.push({
+        section: group.dirName,
+        pageId,
+        pageUrl: `${baseUrl}/${toUrlPath(relativePagePath)}/`,
+        pageDir: path.join(siteRoot, relativePagePath),
+        qrCodePath: path.join(siteRoot, relativePagePath, "qr.png"),
+        deploymentPath: path.join(siteRoot, relativePagePath, "deployment.json"),
+      });
+    }
+  }
+  return pages;
+}
+
 function runCommand(command, args, options) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -587,6 +636,7 @@ Options:
   --html       Inline HTML or markup fragment to publish.
   --title      Used when wrapping a fragment or generating the default page.
   --dry-run    Generate files and print the derived URL without deploying.
+  --list-published  Print published page metadata from the local site tree.
   --help       Show this help.
 
 Config:

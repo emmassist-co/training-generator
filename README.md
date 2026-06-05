@@ -22,6 +22,7 @@ This repo is designed to be agent-native.
 
 The capability map is:
 - plan a session: `create-training-plan`
+- discover the main workflows: `discover-training-workflows`
 - render artifacts from session JSON: `render-training-artifacts`
 - publish to Cloudflare: `publish-html-to-cloudflare`
 - test the phone runtime: `test-training-session-runtime`
@@ -145,11 +146,16 @@ The shipped `data/training_state.json` file is only an example seed. After `npm 
 ## Core Commands
 
 ```bash
+npm run help
 npm run init
 npm test
 npm run render:html -- --input /absolute/path/to/session.json --output /absolute/path/to/session.html
 npm run html:publish -- --html-file /absolute/path/to/session.html
 npm run html:publish:dry-run -- --title "Smoke Session"
+npm run html:list-published
+npm run state:read
+npm run state:read-profile
+npm run state:list-exercises -- --limit 10
 npm run state:summarize-context
 npm run state:validate-log -- --input examples/completed-session-log.txt
 npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/path/to/session.pdf
@@ -165,6 +171,7 @@ npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/pa
 ## Skills Workflow
 
 Repo-local skills cover the main flow:
+- discover the available workflows and next steps
 - generate a training session
 - render HTML and optional PDF from existing session JSON
 - publish the resulting HTML to Cloudflare
@@ -180,6 +187,24 @@ The intended operator flow is:
 5. paste that log back into chat to update local state
 
 The copied log is intentionally token-light. It is meant for an LLM or skill to parse directly, not for a human to read as a report.
+
+## Try These Prompts
+
+- `Generate my next training session from my local state.`
+- `Render this session JSON into a phone page and a PDF.`
+- `Publish this training HTML to Cloudflare and give me the URL and QR.`
+- `Open the latest rendered training page and test the workout interactions.`
+- `Here is a TL1 log. Update my local training history and tell me what it means for the next session.`
+- `Show me the active profile, recent sessions, and Cloudflare publish context.`
+
+## Empty States
+
+- No local training state yet:
+  run `npm run init`, then edit `data/local/training-state.json`.
+- No Cloudflare config yet:
+  run `npm run init`, then edit `config/training-generator.local.json` and run `npx wrangler login`.
+- No plan artifact yet:
+  generate a session first or render an existing session JSON with `npm run render:html`.
 
 ## Shared Workspace
 

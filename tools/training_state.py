@@ -52,8 +52,11 @@ def load_workspace_config() -> dict[str, Any]:
     config_override = os.environ.get("TRAINING_GENERATOR_CONFIG")
     config_path = Path(config_override).expanduser() if config_override else DEFAULT_CONFIG_PATH
     if not config_path.exists():
-        return {}
-    return load_json(config_path)
+        return {"__config_path": None, "__config_source": None}
+    payload = load_json(config_path)
+    payload["__config_path"] = str(config_path)
+    payload["__config_source"] = "env" if config_override else "local"
+    return payload
 
 
 def resolve_local_state_path() -> Path:
@@ -122,6 +125,17 @@ def normalize_tl1_log(raw: str) -> dict[str, Any]:
 
 def load_exercises() -> list[dict[str, Any]]:
     return load_json(EXERCISES_PATH)
+
+
+def primitive_exercise_summary(exercise: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": exercise.get("id"),
+        "name": exercise.get("name"),
+        "category": exercise.get("category"),
+        "equipment": exercise.get("equipment"),
+        "primaryMuscles": exercise.get("primaryMuscles", []),
+        "secondaryMuscles": exercise.get("secondaryMuscles", []),
+    }
 
 
 def normalize(text: str) -> str:
@@ -270,11 +284,24 @@ def cmd_summarize_context(_: argparse.Namespace) -> None:
             "pagesProject": config.get("pagesProject"),
             "pagesSection": config.get("pagesSection", "training"),
             "pagesBaseUrl": config.get("pagesBaseUrl"),
-            "config_path": str(DEFAULT_CONFIG_PATH),
-            "using_local_config": DEFAULT_CONFIG_PATH.exists(),
+            "config_path": config.get("__config_path"),
+            "config_source": config.get("__config_source"),
+            "using_local_config": bool(config.get("__config_path")),
         },
     }
     print(json.dumps(context, indent=2))
+
+
+def cmd_read_state(_: argparse.Namespace) -> None:
+    print(json.dumps(load_state(), indent=2))
+
+
+def cmd_read_profile(_: argparse.Namespace) -> None:
+    state = load_state()
+    print(json.dumps({
+        "profile": state.get("profile", {}),
+        "preferences": state.get("preferences", {}),
+    }, indent=2))
 
 
 def cmd_search_exercises(args: argparse.Namespace) -> None:
@@ -289,6 +316,21 @@ def cmd_search_exercises(args: argparse.Namespace) -> None:
         limit=args.limit,
     )
     print(json.dumps(results, indent=2))
+
+
+def cmd_list_exercises(args: argparse.Namespace) -> None:
+    exercises = load_exercises()
+    items = [primitive_exercise_summary(exercise) for exercise in exercises]
+    if args.limit:
+        items = items[:args.limit]
+    print(json.dumps(items, indent=2))
+
+
+def cmd_read_exercise(args: argparse.Namespace) -> None:
+    exercise = next((item for item in load_exercises() if item.get("id") == args.id), None)
+    if not exercise:
+        raise SystemExit(f"Exercise not found: {args.id}")
+    print(json.dumps(exercise, indent=2))
 
 
 def cmd_log_session(args: argparse.Namespace) -> None:
@@ -331,6 +373,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     context = subparsers.add_parser("summarize-context")
     context.set_defaults(func=cmd_summarize_context)
+
+    read_state = subparsers.add_parser("read-state")
+    read_state.set_defaults(func=cmd_read_state)
+
+    read_profile = subparsers.add_parser("read-profile")
+    read_profile.set_defaults(func=cmd_read_profile)
+
+    list_exercises = subparsers.add_parser("list-exercises")
+    list_exercises.add_argument("--limit", type=int, default=25)
+    list_exercises.set_defaults(func=cmd_list_exercises)
+
+    read_exercise = subparsers.add_parser("read-exercise")
+    read_exercise.add_argument("--id", required=True)
+    read_exercise.set_defaults(func=cmd_read_exercise)
 
     search = subparsers.add_parser("search-exercises")
     search.add_argument("--include-muscles", nargs="*", default=[])
