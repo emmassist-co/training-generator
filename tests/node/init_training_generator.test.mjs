@@ -29,6 +29,7 @@ test("init script creates local config from example", async () => {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.createdConfig, true);
   assert.equal(payload.createdState, true);
+  assert.ok(payload.nextSteps.some((step) => /install:exercise-db/.test(step)));
 
   const generated = await readFile(path.join(root, "config", "training-generator.local.json"), "utf8");
   assert.match(generated, /"pagesProject":"demo"/);

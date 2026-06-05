@@ -3,10 +3,22 @@ const payload = {
   summary: "Training Generator is an agent-native workspace for planning sessions, rendering phone-friendly training pages, publishing them to Cloudflare Pages, and logging completions back into local state.",
   workflows: [
     {
+      name: "Onboard the training profile before planning",
+      skill: "onboard-training-user",
+      command: "npm run state:read-profile",
+      prompt: "Ask the key onboarding questions, save my training profile, then tell me you are ready to generate sessions.",
+    },
+    {
       name: "Plan a session",
       skill: "create-training-plan",
       command: "npm run plan:generate -- --output /absolute/path/to/session.json",
       prompt: "Generate my next training session from my local state.",
+    },
+    {
+      name: "Give the owner a quick product tour after setup",
+      skill: "discover-training-workflows",
+      command: "node ./tools/help_training_generator.mjs",
+      prompt: "Give me a short tour of what this workspace can do, what files matter first, and what I should try next.",
     },
     {
       name: "Render HTML or PDF from existing session JSON",
@@ -57,7 +69,9 @@ const payload = {
     "No rendered plan yet: generate a session first, or render an existing session JSON with `npm run render:html`.",
   ],
   prompts: [
+    "Ask the key onboarding questions for this training generator, save my profile, then tell me what you learned.",
     "Generate my next training session from my local state.",
+    "Give me a quick tour of the workspace, then generate and render one demo training session so I can see it working.",
     "Render this session JSON into a phone page and publish it.",
     "Stage this training page locally, then deploy the site when I say go.",
     "Open the latest rendered plan and test the workout interactions.",
