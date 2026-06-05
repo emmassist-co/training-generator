@@ -2,6 +2,29 @@
 
 Generate training sessions with AI, render them into phone-first HTML, publish them to your own Cloudflare Pages site, and log completions back into local state.
 
+## Install With An Agent
+
+If you want a coding agent to set this up locally for you, send it this prompt:
+
+```text
+Set up this training-generator repo for local use.
+
+Requirements:
+- install dependencies
+- run the repo init flow
+- confirm the local example workflows work
+- tell me exactly which local files I need to edit next
+
+After setup, continue on your own and:
+- run the relevant smoke tests
+- explain how to render an example session locally
+- explain how to configure Cloudflare publishing if I want deploys
+```
+
+The expected next local files are:
+- `data/local/training-state.json`
+- `config/training-generator.local.json`
+
 ## What This Repo Does
 
 - generates structured training sessions from local state and AI prompts
@@ -186,6 +209,8 @@ npm run state:delete-session -- --session-id 2026-06-05-lower-body-a-abc123
 npm run state:list-exercises -- --limit 10
 npm run state:summarize-context
 npm run state:validate-log -- --input examples/completed-session-log.txt
+npm run state:tl1-to-session -- --input examples/completed-session-log.txt
+npm run state:eval-plan -- --input /absolute/path/to/session.json
 npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/path/to/session.pdf
 ```
 
@@ -199,6 +224,7 @@ npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/pa
 - `tools/deploy_cloudflare_pages_site.mjs`: deploys the local site tree to Cloudflare Pages
 - `tools/publish_html_to_cloudflare.mjs`: thin orchestration wrapper that stages then deploys in one command
 - `tools/training_state.py`: reads and updates local training history
+- `tools/training_state.py evaluate-plan`: deterministic preflight for plan structure, history references, and constraint reflection
 - `.codex/skills/`: the repo-local agent workflows that generate, publish, and log sessions
 
 ## Skills Workflow
@@ -257,6 +283,8 @@ That means the user and the agent can inspect the same state without a hidden ba
 - public product surface
 - config/init scaffolding
 - publish dry-run behavior
+- TL1 telemetry normalization and persistence
+- deterministic training-plan eval coverage for history-aware planning
 - rendered runtime telemetry behavior
 
 It does not require:
