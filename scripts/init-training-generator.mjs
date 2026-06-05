@@ -25,6 +25,7 @@ async function main() {
     nextSteps: [
       "Edit config/training-generator.local.json",
       "Edit data/local/training-state.json with your real profile and history",
+      "Run npm run install:exercise-db if the exercise database is missing",
       "Run npx wrangler login",
       "Create or reuse your Cloudflare Pages project",
       "Run npm test",

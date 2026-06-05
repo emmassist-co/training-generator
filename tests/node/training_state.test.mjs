@@ -134,6 +134,71 @@ test("read-profile exposes profile and preferences", async () => {
   const payload = JSON.parse(result.stdout);
   assert.ok(payload.profile);
   assert.ok(payload.preferences);
+  assert.ok(payload.planning_feedback_profile);
+});
+
+test("update-feedback-profile preserves durable planning preferences", async () => {
+  const stateRoot = await mkdtemp(path.join(tmpdir(), "training-generator-feedback-"));
+  const statePath = path.join(stateRoot, "training-state.json");
+  const seedState = JSON.parse(await readFile(path.join(repoRoot, "data", "training_state.json"), "utf8"));
+  seedState.sessions = [];
+  await writeFile(statePath, JSON.stringify(seedState, null, 2), "utf8");
+
+  const patchPath = path.join(stateRoot, "feedback.json");
+  await writeFile(
+    patchPath,
+    JSON.stringify(
+      {
+        summary_notes: [
+          "Prefers short lower-body sessions with minimal setup friction."
+        ],
+        signals: [
+          {
+            category: "exercise",
+            target: "Barbell Hip Thrust",
+            preference: "avoid",
+            note: "Too much setup friction when the gym is busy.",
+            source: "plan-feedback"
+          },
+          {
+            category: "session",
+            target: "Lower-body days",
+            preference: "shorter",
+            note: "About 45 minutes works best.",
+            source: "plan-feedback"
+          }
+        ]
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+
+  const extraEnv = { TRAINING_GENERATOR_STATE_PATH: statePath };
+  const updateResult = await run(
+    "python3",
+    ["./tools/training_state.py", "update-feedback-profile", "--input", patchPath],
+    repoRoot,
+    extraEnv
+  );
+  assert.equal(updateResult.exitCode, 0, updateResult.stderr);
+  const updated = JSON.parse(updateResult.stdout);
+  assert.equal(updated.ok, true);
+  assert.equal(updated.planning_feedback_profile.signals.length >= 2, true);
+
+  const readResult = await run(
+    "python3",
+    ["./tools/training_state.py", "read-feedback-profile"],
+    repoRoot,
+    extraEnv
+  );
+  assert.equal(readResult.exitCode, 0, readResult.stderr);
+  const feedbackProfile = JSON.parse(readResult.stdout);
+  assert.ok(feedbackProfile.updated_at);
+  assert.ok(feedbackProfile.summary_notes.includes("Prefers short lower-body sessions with minimal setup friction."));
+  assert.ok(feedbackProfile.signals.some((signal) => signal.target === "Barbell Hip Thrust" && signal.preference === "avoid"));
+  assert.ok(feedbackProfile.signals.some((signal) => signal.category === "session" && signal.preference === "shorter"));
 });
 
 test("list-exercises returns primitive exercise summaries", async () => {

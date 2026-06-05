@@ -28,6 +28,7 @@ The agent does the planning.
 ```bash
 python3 tools/training_state.py summarize-state
 python3 tools/training_state.py show-recent --limit 5
+python3 tools/training_state.py read-feedback-profile
 ```
 
 2. Infer the immediate planning need:
@@ -67,6 +68,7 @@ python3 tools/training_state.py search-exercises --include-muscles quadriceps ad
 - adherence and motivation,
 - exercise progression or stagnation,
 - boredom and exercise variety.
+- saved exercise, load, session-structure, and progression preferences from the feedback profile.
 7. Convert the final plan into a structured JSON handoff and render the mobile HTML artifact.
 8. Run the deterministic preflight before finalizing the draft:
 
@@ -87,6 +89,7 @@ python3 tools/training_state.py evaluate-plan --input /tmp/plan.json
 - Keep the user motivated. Favor plans that feel doable, varied enough, and clearly progressive without becoming chaotic or reckless.
 - Handle exercise evolution explicitly. Reuse proven movements when they are working, progress them gradually, and rotate only when motivation, tolerance, or equipment makes that useful.
 - Handle weight evolution explicitly. Prefer training structures that support consistent adherence, manageable fatigue, and knee-friendly calorie expenditure.
+- Treat `planning_feedback_profile` as sticky operator preference. If it says the user prefers, avoids, repeats, rotates, lightens, or shortens something, reflect that unless newer evidence clearly overrides it.
 
 ## Output Shape
 

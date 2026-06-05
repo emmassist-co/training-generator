@@ -18,7 +18,7 @@
   },
   "preferences": {
     "planning_style": "conservative and joint-preserving",
-    "exercise_source": "free-exercise-db local copy",
+    "exercise_source": "free-exercise-db GitHub checkout",
     "state_policy": "future plans should review prior logged sessions before proposing new sessions",
     "planning_authority": "the agent plans and coaches; local scripts only retrieve candidates and update state",
     "motivation_policy": "plans should stay sustainable, confidence-building, and engaging enough to maintain adherence"
@@ -26,6 +26,30 @@
   "weight_history": [],
   "motivation_history": [],
   "exercise_progression_notes": [],
+  "planning_feedback_profile": {
+    "updated_at": "2026-06-03T14:35:00",
+    "summary_notes": [
+      "Prefer lower-body sessions that stay simple, steady, and easy to set up."
+    ],
+    "signals": [
+      {
+        "category": "exercise",
+        "target": "Hip thrust machine setups",
+        "preference": "avoid",
+        "note": "Too much setup friction when the gym is busy.",
+        "source": "example-feedback",
+        "updated_at": "2026-06-03T14:35:00"
+      },
+      {
+        "category": "load",
+        "target": "Quad-dominant lower-body compounds",
+        "preference": "lighter",
+        "note": "Prefers controlled loading and slower progressions.",
+        "source": "example-feedback",
+        "updated_at": "2026-06-03T14:35:00"
+      }
+    ]
+  },
   "sessions": [
     {
       "date": "2026-06-03",

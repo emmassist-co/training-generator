@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
+import os
 import re
 from html import escape
 from pathlib import Path
@@ -11,8 +12,9 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EXERCISES_PATH = ROOT / "free-exercise-db" / "dist" / "exercises.json"
-EXERCISE_IMAGE_ROOT = ROOT / "free-exercise-db" / "exercises"
+EXERCISE_DB_ROOT = Path(os.environ.get("FREE_EXERCISE_DB_DIR", ROOT / "free-exercise-db")).expanduser()
+EXERCISES_PATH = EXERCISE_DB_ROOT / "dist" / "exercises.json"
+EXERCISE_IMAGE_ROOT = EXERCISE_DB_ROOT / "exercises"
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "training-plans"
 
 
@@ -34,6 +36,11 @@ def slugify(text: str) -> str:
 
 
 def build_exercise_lookup() -> dict[str, dict[str, Any]]:
+    if not EXERCISES_PATH.exists():
+        raise FileNotFoundError(
+            "Exercise database not found. Run `npm install` or `npm run install:exercise-db`, "
+            "or set FREE_EXERCISE_DB_DIR to an existing free-exercise-db checkout."
+        )
     data = load_json(EXERCISES_PATH)
     lookup: dict[str, dict[str, Any]] = {}
     for exercise in data:

@@ -44,6 +44,12 @@ const payload = {
       command: "npm run state:validate-log -- --input examples/completed-session-log.txt",
       prompt: "Here is a TL1 log. Update my local training history.",
     },
+    {
+      name: "Compound plan or exercise feedback into future preferences",
+      skill: "compound-training-feedback",
+      command: "npm run state:read-feedback-profile",
+      prompt: "The user gave feedback on the plan or exercises. Save the durable preference signals for next time.",
+    },
   ],
   emptyStateGuidance: [
     "No local training state yet: run `npm run init`, then edit `data/local/training-state.json` with the real profile and history.",
@@ -56,6 +62,7 @@ const payload = {
     "Stage this training page locally, then deploy the site when I say go.",
     "Open the latest rendered plan and test the workout interactions.",
     "Here is a TL1 training log. Log it and tell me what it means for the next session.",
+    "The user reacted to the proposed training plan. Compound that feedback into the saved preference profile.",
     "Evaluate this generated session JSON against my saved history before I use it.",
     "Show me the active profile, recent sessions, and Cloudflare publish context.",
     "List the published training pages in this workspace.",

@@ -27,8 +27,10 @@ test("package metadata is generic", async () => {
   assert.ok(pkg.scripts["html:delete-published"]);
   assert.ok(pkg.scripts["state:read"]);
   assert.ok(pkg.scripts["state:read-profile"]);
+  assert.ok(pkg.scripts["state:read-feedback-profile"]);
   assert.ok(pkg.scripts["state:list-sessions"]);
   assert.ok(pkg.scripts["state:update-session"]);
+  assert.ok(pkg.scripts["state:update-feedback-profile"]);
   assert.ok(pkg.scripts["state:delete-session"]);
   assert.ok(pkg.scripts["state:list-exercises"]);
   assert.ok(pkg.scripts["state:summarize-context"]);

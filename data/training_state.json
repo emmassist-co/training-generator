@@ -11,13 +11,37 @@
   },
   "preferences": {
     "planning_style": "clear, sustainable, and phone-friendly",
-    "exercise_source": "free-exercise-db local copy",
+    "exercise_source": "free-exercise-db GitHub checkout",
     "state_policy": "future plans should review recent sessions before proposing new work",
     "planning_authority": "the agent plans; helper scripts retrieve candidates and update state"
   },
   "weight_history": [],
   "motivation_history": [],
   "exercise_progression_notes": [],
+  "planning_feedback_profile": {
+    "updated_at": "2026-06-01T09:00:00",
+    "summary_notes": [
+      "Prefers simple phone-friendly sessions with minimal setup friction."
+    ],
+    "signals": [
+      {
+        "category": "exercise",
+        "target": "Goblet Squat",
+        "preference": "prefer",
+        "note": "Feels controlled and easy to repeat.",
+        "source": "example-feedback",
+        "updated_at": "2026-06-01T09:00:00"
+      },
+      {
+        "category": "progression",
+        "target": "Lower-body strength sessions",
+        "preference": "repeat",
+        "note": "Reuse proven movements before rotating for novelty.",
+        "source": "example-feedback",
+        "updated_at": "2026-06-01T09:00:00"
+      }
+    ]
+  },
   "sessions": [
     {
       "date": "2026-06-01",

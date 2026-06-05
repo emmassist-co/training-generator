@@ -90,6 +90,96 @@ def load_state() -> dict[str, Any]:
     return load_json(EXAMPLE_STATE_PATH)
 
 
+def default_feedback_profile() -> dict[str, Any]:
+    return {
+        "updated_at": None,
+        "summary_notes": [],
+        "signals": [],
+    }
+
+
+def normalize_feedback_signal(raw: dict[str, Any], fallback_updated_at: str | None = None) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    category = str(raw.get("category") or "other").strip().lower()
+    target = str(raw.get("target") or "").strip()
+    preference = str(raw.get("preference") or "").strip().lower()
+    note = str(raw.get("note") or "").strip()
+    source = str(raw.get("source") or "user-feedback").strip().lower()
+    updated_at = str(raw.get("updated_at") or fallback_updated_at or "").strip() or None
+    if not target and not note:
+        return None
+    return {
+        "category": category,
+        "target": target,
+        "preference": preference,
+        "note": note,
+        "source": source,
+        "updated_at": updated_at,
+    }
+
+
+def merge_feedback_profile(
+    current: dict[str, Any] | None,
+    patch: dict[str, Any],
+    *,
+    updated_at: str,
+) -> dict[str, Any]:
+    profile = default_feedback_profile()
+    if isinstance(current, dict):
+        profile["updated_at"] = current.get("updated_at")
+        profile["summary_notes"] = [
+            str(note).strip()
+            for note in current.get("summary_notes", [])
+            if str(note).strip()
+        ]
+        profile["signals"] = [
+            signal
+            for signal in (
+                normalize_feedback_signal(signal, current.get("updated_at"))
+                for signal in current.get("signals", [])
+            )
+            if signal
+        ]
+
+    seen_notes = {note.lower() for note in profile["summary_notes"]}
+    for note in patch.get("summary_notes", []):
+        clean = str(note).strip()
+        if not clean or clean.lower() in seen_notes:
+            continue
+        profile["summary_notes"].append(clean)
+        seen_notes.add(clean.lower())
+
+    signal_index = {
+        (
+            str(signal.get("category", "")).lower(),
+            str(signal.get("target", "")).lower(),
+            str(signal.get("preference", "")).lower(),
+            str(signal.get("note", "")).lower(),
+        ): index
+        for index, signal in enumerate(profile["signals"])
+    }
+    for raw_signal in patch.get("signals", []):
+        signal = normalize_feedback_signal(raw_signal, updated_at)
+        if not signal:
+            continue
+        key = (
+            signal["category"],
+            signal["target"].lower(),
+            signal["preference"],
+            signal["note"].lower(),
+        )
+        if key in signal_index:
+            profile["signals"][signal_index[key]]["updated_at"] = signal["updated_at"]
+            profile["signals"][signal_index[key]]["source"] = signal["source"]
+            continue
+        signal_index[key] = len(profile["signals"])
+        profile["signals"].append(signal)
+
+    profile["updated_at"] = updated_at
+    return profile
+
+
 def ensure_session_ids(state: dict[str, Any]) -> bool:
     changed = False
     for session in state.get("sessions", []):
@@ -612,6 +702,7 @@ def cmd_summarize_state(_: argparse.Namespace) -> None:
     summary = {
         "profile": profile,
         "preferences": state.get("preferences", {}),
+        "planning_feedback_profile": state.get("planning_feedback_profile", default_feedback_profile()),
         "state_path": str(resolve_local_state_path()),
         "using_example_state": not resolve_local_state_path().exists(),
         "latest_session_date": recent_sessions(state, 1)[0]["date"] if state.get("sessions") else None,
@@ -628,6 +719,7 @@ def cmd_summarize_context(_: argparse.Namespace) -> None:
     context = {
         "profile": state.get("profile", {}),
         "preferences": state.get("preferences", {}),
+        "planning_feedback_profile": state.get("planning_feedback_profile", default_feedback_profile()),
         "recent_focus_counts": recent_focus_summary(state),
         "latest_sessions": recent_sessions(state, 3),
         "state": {
@@ -655,7 +747,13 @@ def cmd_read_profile(_: argparse.Namespace) -> None:
     print(json.dumps({
         "profile": state.get("profile", {}),
         "preferences": state.get("preferences", {}),
+        "planning_feedback_profile": state.get("planning_feedback_profile", default_feedback_profile()),
     }, indent=2))
+
+
+def cmd_read_feedback_profile(_: argparse.Namespace) -> None:
+    state = load_state()
+    print(json.dumps(state.get("planning_feedback_profile", default_feedback_profile()), indent=2))
 
 
 def cmd_search_exercises(args: argparse.Namespace) -> None:
@@ -704,6 +802,30 @@ def cmd_log_session(args: argparse.Namespace) -> None:
                 "date": payload["date"],
                 "state_path": str(resolve_local_state_path()),
                 "summary": f"Logged session to {resolve_local_state_path()} ({len(state['sessions'])} total).",
+            },
+            indent=2,
+        )
+    )
+
+
+def cmd_update_feedback_profile(args: argparse.Namespace) -> None:
+    state = load_state()
+    patch = json.loads(Path(args.input).read_text())
+    updated_at = datetime.now().isoformat(timespec="seconds")
+    merged = merge_feedback_profile(
+        state.get("planning_feedback_profile"),
+        patch if isinstance(patch, dict) else {},
+        updated_at=updated_at,
+    )
+    state["planning_feedback_profile"] = merged
+    save_json(resolve_local_state_path(), state)
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "action": "updated",
+                "state_path": str(resolve_local_state_path()),
+                "planning_feedback_profile": merged,
             },
             indent=2,
         )
@@ -809,6 +931,9 @@ def build_parser() -> argparse.ArgumentParser:
     read_profile = subparsers.add_parser("read-profile")
     read_profile.set_defaults(func=cmd_read_profile)
 
+    read_feedback_profile = subparsers.add_parser("read-feedback-profile")
+    read_feedback_profile.set_defaults(func=cmd_read_feedback_profile)
+
     list_exercises = subparsers.add_parser("list-exercises")
     list_exercises.add_argument("--limit", type=int, default=25)
     list_exercises.set_defaults(func=cmd_list_exercises)
@@ -829,6 +954,10 @@ def build_parser() -> argparse.ArgumentParser:
     log = subparsers.add_parser("log-session")
     log.add_argument("--input", required=True)
     log.set_defaults(func=cmd_log_session)
+
+    update_feedback_profile = subparsers.add_parser("update-feedback-profile")
+    update_feedback_profile.add_argument("--input", required=True)
+    update_feedback_profile.set_defaults(func=cmd_update_feedback_profile)
 
     recent = subparsers.add_parser("show-recent")
     recent.add_argument("--limit", type=int, default=5)
