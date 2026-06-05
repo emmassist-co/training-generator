@@ -37,6 +37,30 @@ test("publisher uses local config for dry-run", async () => {
   assert.match(payload.pageUrl, /https:\/\/demo-training\.pages\.dev\/sessions\//);
 });
 
+test("stage primitive can prepare a page without deploying", async () => {
+  const cwd = path.resolve(new URL("../..", import.meta.url).pathname);
+  const result = await run(
+    "node",
+    [
+      "./tools/stage_training_page_publish.mjs",
+      "--dry-run",
+      "--section",
+      "test-pages",
+      "--path",
+      `stage-${Date.now()}`,
+      "--title",
+      "Stage Test",
+      "--html",
+      "<h1>Stage Test</h1>"
+    ],
+    cwd
+  );
+  assert.equal(result.exitCode, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.mode, "dry-run");
+  assert.match(payload.pageUrl, /\/test-pages\//);
+});
+
 test("publisher can list published pages from local site tree", async () => {
   const cwd = path.resolve(new URL("../..", import.meta.url).pathname);
   const uniquePath = `test-list-${Date.now()}`;

@@ -15,11 +15,13 @@ This repo is an agent-native training generator, not just a pile of helper scrip
 |---|---|
 | Discover the main workflows and prompts | `.codex/skills/discover-training-workflows/`, `tools/help_training_generator.mjs`, `npm run help` |
 | Plan the next session from local history | `.codex/skills/create-training-plan/` |
-| Render session JSON into HTML or PDF | `.codex/skills/render-training-artifacts/`, `tools/render_training_plan.py`, `npm run render:html`, `npm run plan:pdf` |
+| Render session JSON into HTML or PDF | `.codex/skills/render-training-artifacts/`, `tools/training_rendering.py`, `tools/render_training_plan.py`, `npm run render:html`, `npm run plan:pdf` |
 | List or delete rendered HTML/PDF artifacts | `tools/manage_training_artifacts.mjs`, `npm run artifacts:list`, `npm run artifacts:delete` |
-| Publish a session page to the user's Cloudflare Pages site | `.codex/skills/publish-html-to-cloudflare/`, `tools/publish_html_to_cloudflare.mjs`, `npm run html:publish` |
+| Stage a page into the local Cloudflare site tree | `tools/stage_training_page_publish.mjs`, `npm run html:stage` |
+| Deploy the local site tree to Cloudflare Pages | `tools/deploy_cloudflare_pages_site.mjs`, `npm run html:deploy-site` |
+| Publish a session page to the user's Cloudflare Pages site | `.codex/skills/publish-html-to-cloudflare/`, `tools/cloudflare_pages_site.mjs`, `tools/publish_html_to_cloudflare.mjs`, `npm run html:publish` |
 | List already-published training pages | `tools/publish_html_to_cloudflare.mjs --list-published`, `npm run html:list-published` |
-| Delete one published training page | `tools/publish_html_to_cloudflare.mjs --delete-published --path <page-id>` |
+| Delete one published training page | `tools/delete_published_training_page.mjs`, `npm run html:delete-published -- --path <page-id>` |
 | Test the interactive training page | `.codex/skills/test-training-session-runtime/` |
 | Parse or validate a copied `TL1` log | `tools/training_state.py validate-tl1`, `npm run state:validate-log` |
 | Log a completed workout into local history | `.codex/skills/log-training-session/`, `tools/training_state.py log-session` |
@@ -58,7 +60,7 @@ This is deliberate. The planning agent should read one shared local file instead
 ## Known Limits
 
 - The tool layer is still workflow-heavy, not fully primitive-heavy.
-- Some workflows are still monolithic, especially render and publish.
+- The runtime HTML itself is still a large template surface, even though the CLI paths are now split into smaller primitives.
 - The phone runtime is shared back to the agent through `TL1`, not live sync.
 
 ## Direction

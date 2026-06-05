@@ -150,12 +150,15 @@ npm run help
 npm run init
 npm test
 npm run render:html -- --input /absolute/path/to/session.json --output /absolute/path/to/session.html
+npm run render:module-check
 npm run artifacts:list
 npm run artifacts:delete -- --delete lower-body-strength-a
+npm run html:stage -- --html-file /absolute/path/to/session.html
+npm run html:deploy-site
 npm run html:publish -- --html-file /absolute/path/to/session.html
 npm run html:publish:dry-run -- --title "Smoke Session"
 npm run html:list-published
-npm run html:publish -- --delete-published --path 2026-06-05-lower-body-a-01abcxyz
+npm run html:delete-published -- --path 2026-06-05-lower-body-a-01abcxyz
 npm run state:read
 npm run state:read-profile
 npm run state:list-sessions -- --limit 10
@@ -170,9 +173,13 @@ npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/pa
 
 ## How It Fits Together
 
-- `tools/render_training_plan.py`: turns structured session JSON into the phone-first HTML page
+- `tools/training_rendering.py`: reusable render module for session JSON -> phone-first HTML
+- `tools/render_training_plan.py`: thin CLI wrapper around the renderer module
 - `tools/manage_training_artifacts.mjs`: lists or deletes rendered HTML/PDF artifacts in `output/training-plans/`
-- `tools/publish_html_to_cloudflare.mjs`: publishes that HTML into a stable Cloudflare Pages path and generates a QR code
+- `tools/cloudflare_pages_site.mjs`: reusable Cloudflare Pages site primitives for stage/list/delete/deploy
+- `tools/stage_training_page_publish.mjs`: stages one HTML page into the local site tree and generates its QR
+- `tools/deploy_cloudflare_pages_site.mjs`: deploys the local site tree to Cloudflare Pages
+- `tools/publish_html_to_cloudflare.mjs`: thin orchestration wrapper that stages then deploys in one command
 - `tools/training_state.py`: reads and updates local training history
 - `.codex/skills/`: the repo-local agent workflows that generate, publish, and log sessions
 
@@ -201,6 +208,7 @@ The copied log is intentionally token-light. It is meant for an LLM or skill to 
 - `Generate my next training session from my local state.`
 - `Render this session JSON into a phone page and a PDF.`
 - `Publish this training HTML to Cloudflare and give me the URL and QR.`
+- `Stage this training page locally, then deploy the site when I say go.`
 - `List my rendered artifacts and published training pages, then delete the stale ones.`
 - `Open the latest rendered training page and test the workout interactions.`
 - `Here is a TL1 log. Update my local training history and tell me what it means for the next session.`

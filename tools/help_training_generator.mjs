@@ -21,6 +21,12 @@ const payload = {
       prompt: "Publish this training HTML to Cloudflare and give me the URL and QR.",
     },
     {
+      name: "Stage or deploy the Cloudflare site in smaller steps",
+      skill: "discover-training-workflows",
+      command: "npm run html:stage -- --html-file /absolute/path/to/session.html",
+      prompt: "Stage this training page into the local Cloudflare site tree, then deploy it.",
+    },
+    {
       name: "Inspect or clean up artifacts and published pages",
       skill: "discover-training-workflows",
       command: "npm run artifacts:list",
@@ -47,6 +53,7 @@ const payload = {
   prompts: [
     "Generate my next training session from my local state.",
     "Render this session JSON into a phone page and publish it.",
+    "Stage this training page locally, then deploy the site when I say go.",
     "Open the latest rendered plan and test the workout interactions.",
     "Here is a TL1 training log. Log it and tell me what it means for the next session.",
     "Show me the active profile, recent sessions, and Cloudflare publish context.",
