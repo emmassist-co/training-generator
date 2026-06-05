@@ -113,7 +113,7 @@ def render_prescription_grid(item: dict[str, Any], css_class: str = "prescriptio
         f'<div class="{css_class}-item"><div class="{css_class}-label">{escape(label)}</div><div class="{css_class}-value">{escape(value)}</div></div>'
         for label, value in fields
     )
-    return f'<div class="{css_class}">{cells}</div>'
+    return f'<div class="{css_class}" style="display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;">{cells}</div>'
 
 
 def render_list(items: list[str], css_class: str) -> str:
@@ -459,6 +459,37 @@ def interactive_training_script() -> str:
           background: var(--card);
           padding: 10px;
         }
+        .exercise-control-card.is-primary-focus {
+          grid-column: 1 / -1;
+        }
+        .set-counter-layout {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 14px;
+        }
+        .set-counter-copy {
+          display: grid;
+          gap: 6px;
+          align-content: center;
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        .set-counter-copy .exercise-control-value,
+        .set-counter-copy .session-inline-note {
+          margin-top: 0;
+        }
+        .set-counter-actions {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 8px;
+          width: min(176px, 42vw);
+          flex: 0 0 auto;
+          align-self: center;
+        }
+        .set-counter-actions .exercise-button {
+          width: 100%;
+        }
         .exercise-control-label {
           color: var(--muted);
           font-size: 0.72rem;
@@ -475,6 +506,10 @@ def interactive_training_script() -> str:
           font-weight: 800;
           line-height: 1;
           letter-spacing: -0.03em;
+        }
+        .exercise-control-value.emphasis {
+          font-size: 2rem;
+          line-height: 0.95;
         }
         .exercise-control-value.small {
           font-size: 0.96rem;
@@ -572,6 +607,9 @@ def interactive_training_script() -> str:
           .exercise-controls-grid {
             grid-template-columns: 1fr;
           }
+          .set-counter-layout {
+            gap: 12px;
+          }
         }
         @media (max-width: 28rem) {
           .session-action-row,
@@ -580,6 +618,13 @@ def interactive_training_script() -> str:
           .timer-row,
           .set-row {
             grid-template-columns: 1fr;
+          }
+          .set-counter-layout {
+            gap: 10px;
+          }
+          .set-counter-actions {
+            width: min(152px, 42vw);
+            gap: 8px;
           }
         }
       `;
@@ -855,6 +900,21 @@ def interactive_training_script() -> str:
         if (!variant.setsTotal) return;
         if (!state.startedAt) startSession(index);
         exerciseState.completedSets = Math.max(0, Math.min(variant.setsTotal, Number(exerciseState.completedSets || 0) + delta));
+        if (exerciseState.completedSets >= variant.setsTotal) {
+          exerciseState.completed = true;
+          exerciseState.completedAt = new Date().toISOString();
+          exerciseState.expandedCompleted = false;
+          exerciseState.timerEndsAt = null;
+          advanceCurrentExercise();
+          if (state.exerciseStates.every((item) => item.completed)) {
+            state.completedAt = state.completedAt || new Date().toISOString();
+          }
+        } else if (exerciseState.completed) {
+          exerciseState.completed = false;
+          exerciseState.completedAt = null;
+          state.completedAt = null;
+          state.currentExerciseIndex = index;
+        }
         saveState();
         renderAll();
       };
@@ -943,7 +1003,7 @@ def interactive_training_script() -> str:
 
       const renderFieldGrid = (fields, classPrefix) => {
         if (!fields.length) return "";
-        return `<div class="${classPrefix}">${fields.map((field) => `
+        return `<div class="${classPrefix}" style="display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;">${fields.map((field) => `
           <div class="${classPrefix}-item">
             <div class="${classPrefix}-label">${escapeHtml(field.label)}</div>
             <div class="${classPrefix}-value">${escapeHtml(field.value)}</div>
@@ -964,13 +1024,17 @@ def interactive_training_script() -> str:
       const renderExerciseControls = (exercise, exerciseState, index) => {
         const currentVariant = getCurrentVariant(index);
         const setCounter = currentVariant.setsTotal ? `
-          <div class="exercise-control-card">
-            <div class="exercise-control-label"><span class="control-icon">🔢</span>Set Counter</div>
-            <div class="exercise-control-value">${exerciseState.completedSets || 0}/${currentVariant.setsTotal}</div>
-            <div class="session-inline-note">${currentVariant.repsLabel ? `${escapeHtml(currentVariant.repsLabel)} reps each set.` : "Count each finished set."}</div>
-            <div class="set-row">
-              <button type="button" class="exercise-button primary" data-action="complete-set" data-index="${index}">✅ Set done</button>
-              <button type="button" class="exercise-button" data-action="undo-set" data-index="${index}">↺ Undo</button>
+          <div class="exercise-control-card is-primary-focus">
+            <div class="set-counter-layout">
+              <div class="set-counter-copy">
+                <div class="exercise-control-label"><span class="control-icon">🔢</span>Set Counter</div>
+                <div class="exercise-control-value emphasis">${exerciseState.completedSets || 0}/${currentVariant.setsTotal}</div>
+                <div class="session-inline-note">${currentVariant.repsLabel ? `${escapeHtml(currentVariant.repsLabel)} reps each set.` : "Count each finished set."}</div>
+              </div>
+              <div class="set-counter-actions">
+                <button type="button" class="exercise-button primary" data-action="complete-set" data-index="${index}">✅ Set done</button>
+                <button type="button" class="exercise-button" data-action="undo-set" data-index="${index}">↺ Undo</button>
+              </div>
             </div>
           </div>` : "";
 
@@ -997,12 +1061,13 @@ def interactive_training_script() -> str:
               <button type="button" class="exercise-button" data-action="focus-exercise" data-index="${index}">${state.currentExerciseIndex === index ? "🎯 Current" : "🎯 Make current"}</button>
             </div>
           </div>`;
+        const manualStatusCard = currentVariant.setsTotal ? "" : statusCard;
 
         return `<div class="exercise-controls">
           <div class="exercise-controls-grid">
             ${setCounter || ""}
             ${timerCard || ""}
-            ${statusCard}
+            ${manualStatusCard}
           </div>
           <div class="exercise-status-copy">${state.currentExerciseIndex === index ? "This is the one the tracker follows." : "Make this current if you want the tracker to follow it."}</div>
         </div>`;
@@ -1468,13 +1533,21 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
     }}
     .prescription-grid,
     .alternative-prescription-grid {{
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      display: flex;
+      flex-wrap: nowrap;
       gap: 8px;
       margin-top: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }}
+    .prescription-grid::-webkit-scrollbar,
+    .alternative-prescription-grid::-webkit-scrollbar {{
+      display: none;
     }}
     .prescription-grid-item,
     .alternative-prescription-grid-item {{
+      flex: 1 1 0;
+      min-width: 0;
       background: var(--card-strong);
       border: 1px solid var(--soft-border);
       border-radius: var(--radius-md);
