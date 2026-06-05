@@ -24,6 +24,7 @@
     "html:delete-published": "node ./tools/delete_published_training_page.mjs",
     "state:read": "python3 ./tools/training_state.py read-state",
     "state:read-profile": "python3 ./tools/training_state.py read-profile",
+    "state:update-profile": "python3 ./tools/training_state.py update-profile",
     "state:read-feedback-profile": "python3 ./tools/training_state.py read-feedback-profile",
     "state:list-sessions": "python3 ./tools/training_state.py list-sessions",
     "state:read-session": "python3 ./tools/training_state.py read-session",

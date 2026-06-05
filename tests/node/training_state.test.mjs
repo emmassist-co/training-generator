@@ -137,6 +137,57 @@ test("read-profile exposes profile and preferences", async () => {
   assert.ok(payload.planning_feedback_profile);
 });
 
+test("update-profile merges onboarding facts into local state", async () => {
+  const stateRoot = await mkdtemp(path.join(tmpdir(), "training-generator-profile-"));
+  const statePath = path.join(stateRoot, "training-state.json");
+  const seedState = JSON.parse(await readFile(path.join(repoRoot, "data", "training_state.json"), "utf8"));
+  seedState.sessions = [];
+  await writeFile(statePath, JSON.stringify(seedState, null, 2), "utf8");
+
+  const patchPath = path.join(stateRoot, "profile.json");
+  await writeFile(
+    patchPath,
+    JSON.stringify(
+      {
+        profile: {
+          name: "Alex",
+          constraints: ["avoid jumping"],
+          training_focus: ["strength", "consistency"]
+        },
+        preferences: {
+          session_duration_min: 45,
+          weekly_frequency: 4,
+          equipment_access: ["dumbbells", "cable machine"]
+        }
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+
+  const extraEnv = { TRAINING_GENERATOR_STATE_PATH: statePath };
+  const updateResult = await run(
+    "python3",
+    ["./tools/training_state.py", "update-profile", "--input", patchPath],
+    repoRoot,
+    extraEnv
+  );
+  assert.equal(updateResult.exitCode, 0, updateResult.stderr);
+  const updated = JSON.parse(updateResult.stdout);
+  assert.equal(updated.ok, true);
+  assert.equal(updated.profile.name, "Alex");
+  assert.equal(updated.preferences.session_duration_min, 45);
+
+  const readResult = await run("python3", ["./tools/training_state.py", "read-profile"], repoRoot, extraEnv);
+  assert.equal(readResult.exitCode, 0, readResult.stderr);
+  const payload = JSON.parse(readResult.stdout);
+  assert.equal(payload.profile.name, "Alex");
+  assert.ok(payload.profile.constraints.includes("avoid jumping"));
+  assert.equal(payload.preferences.weekly_frequency, 4);
+  assert.ok(payload.preferences.equipment_access.includes("dumbbells"));
+});
+
 test("update-feedback-profile preserves durable planning preferences", async () => {
   const stateRoot = await mkdtemp(path.join(tmpdir(), "training-generator-feedback-"));
   const statePath = path.join(stateRoot, "training-state.json");

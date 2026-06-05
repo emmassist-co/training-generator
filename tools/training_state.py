@@ -90,6 +90,16 @@ def load_state() -> dict[str, Any]:
     return load_json(EXAMPLE_STATE_PATH)
 
 
+def merge_nested_dicts(current: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(current)
+    for key, value in patch.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_nested_dicts(merged[key], value)
+            continue
+        merged[key] = value
+    return merged
+
+
 def default_feedback_profile() -> dict[str, Any]:
     return {
         "updated_at": None,
@@ -756,6 +766,31 @@ def cmd_read_feedback_profile(_: argparse.Namespace) -> None:
     print(json.dumps(state.get("planning_feedback_profile", default_feedback_profile()), indent=2))
 
 
+def cmd_update_profile(args: argparse.Namespace) -> None:
+    state = load_state()
+    patch = json.loads(Path(args.input).read_text())
+    profile_patch = patch.get("profile", {}) if isinstance(patch, dict) else {}
+    preferences_patch = patch.get("preferences", {}) if isinstance(patch, dict) else {}
+    if not isinstance(profile_patch, dict) or not isinstance(preferences_patch, dict):
+        raise SystemExit("Profile patch must be an object with optional `profile` and `preferences` objects.")
+
+    state["profile"] = merge_nested_dicts(state.get("profile", {}), profile_patch)
+    state["preferences"] = merge_nested_dicts(state.get("preferences", {}), preferences_patch)
+    save_json(resolve_local_state_path(), state)
+    print(
+        json.dumps(
+            {
+                "ok": True,
+                "action": "updated",
+                "state_path": str(resolve_local_state_path()),
+                "profile": state.get("profile", {}),
+                "preferences": state.get("preferences", {}),
+            },
+            indent=2,
+        )
+    )
+
+
 def cmd_search_exercises(args: argparse.Namespace) -> None:
     exercises = load_exercises()
     results = search_exercises(
@@ -930,6 +965,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     read_profile = subparsers.add_parser("read-profile")
     read_profile.set_defaults(func=cmd_read_profile)
+
+    update_profile = subparsers.add_parser("update-profile")
+    update_profile.add_argument("--input", required=True)
+    update_profile.set_defaults(func=cmd_update_profile)
 
     read_feedback_profile = subparsers.add_parser("read-feedback-profile")
     read_feedback_profile.set_defaults(func=cmd_read_feedback_profile)
