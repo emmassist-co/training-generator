@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
@@ -260,6 +261,63 @@ def normalize_tl1_log(raw: str) -> dict[str, Any]:
             "tick_ms": tick_ms,
         } if telemetry_meta else None,
         "exercises": exercises,
+    }
+
+
+def tl1_log_to_session_seed(payload: dict[str, Any]) -> dict[str, Any]:
+    started_at = payload.get("started_at")
+    ended_at = payload.get("ended_at")
+    session_date = None
+    for value in [started_at, ended_at]:
+        if isinstance(value, str) and value:
+            session_date = value[:10]
+            break
+
+    duration_min = None
+    if started_at and ended_at:
+        try:
+            started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            ended = datetime.fromisoformat(ended_at.replace("Z", "+00:00"))
+            duration_min = max(0, round((ended - started).total_seconds() / 60))
+        except ValueError:
+            duration_min = None
+
+    exercises: list[dict[str, Any]] = []
+    for exercise in payload.get("exercises", []):
+        name = exercise.get("actual_name") or exercise.get("planned_name")
+        exercise_payload = {
+            "name": name,
+            "planned_name": exercise.get("planned_name"),
+            "sets": exercise.get("set_target"),
+            "completed_sets": exercise.get("completed_sets"),
+            "duration_seconds": exercise.get("timer_seconds"),
+            "completed": exercise.get("completed"),
+            "notes": exercise.get("prescription_summary"),
+            "telemetry": exercise.get("telemetry"),
+        }
+        if exercise.get("swapped"):
+            exercise_payload["swap_from"] = exercise.get("planned_name")
+        exercises.append(exercise_payload)
+
+    return {
+        "date": session_date or str(date.today()),
+        "session_type": "generated-session",
+        "title": payload.get("title"),
+        "summary": f"Completed generated session: {payload.get('title') or payload.get('id') or 'Untitled session'}.",
+        "source_training_id": payload.get("id"),
+        "difficulty": payload.get("difficulty"),
+        "confidence_note": payload.get("notes") or "Derived from compact TL1 training log.",
+        "notes": payload.get("notes", ""),
+        "duration_min": duration_min,
+        "exercises": exercises,
+        "telemetry": {
+            "schema": payload.get("schema"),
+            "page_url": payload.get("url"),
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "exercise_count": payload.get("exercise_count"),
+            "meta": payload.get("telemetry"),
+        },
     }
 
 
