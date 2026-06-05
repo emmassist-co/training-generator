@@ -12,3 +12,4 @@ data/local/
 output/cloudflare-pages/
 output/training-plans/
 output/*.pdf
+.worktrees

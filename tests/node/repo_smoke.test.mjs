@@ -18,16 +18,24 @@ test("example config exists", async () => {
 
 test("example session artifacts exist", async () => {
   const session = JSON.parse(await readFile(new URL("../../examples/lower-body-strength-a.session.json", import.meta.url), "utf8"));
+  const sessionHtml = await readFile(new URL("../../examples/lower-body-strength-a.html", import.meta.url), "utf8");
+  const sessionPreview = await readFile(new URL("../../examples/lower-body-strength-a.preview.png", import.meta.url));
   const log = await readFile(new URL("../../examples/completed-session-log.txt", import.meta.url), "utf8");
   const upper = JSON.parse(await readFile(new URL("../../examples/upper-body-strength-b.session.json", import.meta.url), "utf8"));
+  const upperHtml = await readFile(new URL("../../examples/upper-body-strength-b.html", import.meta.url), "utf8");
   const upperLog = await readFile(new URL("../../examples/upper-body-strength-b.completed-log.txt", import.meta.url), "utf8");
   const conditioning = JSON.parse(await readFile(new URL("../../examples/conditioning-circuit.session.json", import.meta.url), "utf8"));
+  const conditioningHtml = await readFile(new URL("../../examples/conditioning-circuit.html", import.meta.url), "utf8");
   const conditioningLog = await readFile(new URL("../../examples/conditioning-circuit.completed-log.txt", import.meta.url), "utf8");
   assert.equal(session.title, "Lower Body Strength A");
+  assert.match(sessionHtml, /Lower Body Strength A/);
+  assert.ok(sessionPreview.byteLength > 0);
   assert.match(log, /^TL1 /);
   assert.equal(upper.title, "Upper Body Strength B");
+  assert.match(upperHtml, /Upper Body Strength B/);
   assert.match(upperLog, /^TL1 /);
   assert.equal(conditioning.title, "Conditioning Circuit");
+  assert.match(conditioningHtml, /Conditioning Circuit/);
   assert.match(conditioningLog, /^TL1 /);
   assert.equal(conditioning.exercises.some((exercise) => Boolean(exercise.duration)), true);
 });

@@ -66,12 +66,19 @@ npm run html:publish:dry-run -- --title "Smoke Session"
 
 ## Example
 
+Preview of a rendered session page:
+
+![Lower Body Strength A preview](./examples/lower-body-strength-a.preview.png)
+
 Concrete example files live in [`examples/`](./examples):
 - [`lower-body-strength-a.session.json`](./examples/lower-body-strength-a.session.json): structured session payload the renderer consumes
+- [`lower-body-strength-a.html`](./examples/lower-body-strength-a.html): rendered phone-first HTML example you can open directly
 - [`completed-session-log.txt`](./examples/completed-session-log.txt): compact `TL1` log copied back from the phone page after training, including bounded telemetry
 - [`upper-body-strength-b.session.json`](./examples/upper-body-strength-b.session.json): upper-body push-pull strength day with a swap-ready row alternative
+- [`upper-body-strength-b.html`](./examples/upper-body-strength-b.html): rendered upper-body example page
 - [`upper-body-strength-b.completed-log.txt`](./examples/upper-body-strength-b.completed-log.txt): matching `TL1` log for that upper-body session
 - [`conditioning-circuit.session.json`](./examples/conditioning-circuit.session.json): timed conditioning example that exercises the timer path
+- [`conditioning-circuit.html`](./examples/conditioning-circuit.html): rendered timed-conditioning example page
 - [`conditioning-circuit.completed-log.txt`](./examples/conditioning-circuit.completed-log.txt): matching `TL1` log for the timed circuit
 
 That example flow is:
