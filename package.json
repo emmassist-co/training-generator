@@ -4,10 +4,13 @@
   "type": "module",
   "description": "Generate phone-first training sessions, publish them to Cloudflare Pages, and log completions locally.",
   "scripts": {
+    "postinstall": "node ./scripts/install-free-exercise-db.mjs",
     "test": "node --test tests/docs/*.test.mjs tests/node/*.test.mjs",
     "help": "node ./tools/help_training_generator.mjs",
     "init": "node ./scripts/init-training-generator.mjs",
+    "install:exercise-db": "node ./scripts/install-free-exercise-db.mjs",
     "setup:pdf": "npx playwright install chromium",
+    "plan:generate": "python3 ./tools/generate_training_plan.py",
     "render:html": "python3 ./tools/render_training_plan.py",
     "render:module-check": "PYTHONPATH=./tools python3 -c \"from training_rendering import render_plan\"",
     "plan:pdf": "node ./tools/export_training_plan_pdf.mjs",

@@ -4,24 +4,32 @@ Generate training sessions with AI, render them into phone-first HTML, publish t
 
 ## Install With An Agent
 
-If you want a coding agent to set this up locally for you, send it this prompt:
+GitHub repo: [emmassist-co/training-generator](https://github.com/emmassist-co/training-generator)
+
+If you want your own coding agent to install this for you as a usable local training generator, send it this prompt:
 
 ```text
-Set up this training-generator repo for local use.
+Clone and set up https://github.com/emmassist-co/training-generator so I can use it locally as my training generator.
 
-Requirements:
-- install dependencies
-- run the repo init flow
-- confirm the local example workflows work
-- tell me exactly which local files I need to edit next
+Do not treat this as a contributor setup. Treat it as owner install and handoff.
 
-After setup, continue on your own and:
-- run the relevant smoke tests
-- explain how to render an example session locally
-- explain how to configure Cloudflare publishing if I want deploys
+Exact setup flow:
+1. Clone the repo and enter it.
+2. Run `npm install`.
+   This should also download the local `free-exercise-db` checkout used by the generator.
+3. Run `npm run init`.
+   This should create local config/state files if they do not exist yet.
+4. Tell me exactly which files I need to edit next for my own usage.
+5. Run the relevant smoke tests and confirm the workspace works locally.
+6. Show me the exact command to generate or render an example session next.
+
+After setup, explain:
+- what `npm run init` created
+- how I edit my training profile/history
+- how I configure Cloudflare publishing later if I want deploys
 ```
 
-The expected next local files are:
+The expected next local files after `npm run init` are:
 - `data/local/training-state.json`
 - `config/training-generator.local.json`
 
@@ -75,6 +83,8 @@ If you want to adapt it to your own style or sport, the fastest path is:
 npm install
 npm run init
 ```
+
+`npm install` downloads a local ignored checkout of [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db) into `./free-exercise-db/`. That data is used at runtime, but it is not meant to be committed as part of this repo.
 
 Then:
 
@@ -163,6 +173,7 @@ You can also use environment variables:
 - `CLOUDFLARE_PAGES_PROJECT`
 - `CLOUDFLARE_PAGES_BASE_URL`
 - `TRAINING_GENERATOR_STATE_PATH`
+- `FREE_EXERCISE_DB_DIR`: optional override if you want to point at an existing `free-exercise-db` checkout elsewhere
 
 ## Local Training State
 
@@ -189,7 +200,9 @@ The shipped `data/training_state.json` file is only an example seed. After `npm 
 ```bash
 npm run help
 npm run init
+npm run install:exercise-db
 npm test
+npm run plan:generate -- --output /absolute/path/to/session.json
 npm run render:html -- --input /absolute/path/to/session.json --output /absolute/path/to/session.html
 npm run render:module-check
 npm run artifacts:list
@@ -217,6 +230,7 @@ npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/pa
 ## How It Fits Together
 
 - `tools/training_rendering.py`: reusable render module for session JSON -> phone-first HTML
+- `tools/generate_training_plan.py`: deterministic baseline generator from local state and recent history
 - `tools/render_training_plan.py`: thin CLI wrapper around the renderer module
 - `tools/manage_training_artifacts.mjs`: lists or deletes rendered HTML/PDF artifacts in `output/training-plans/`
 - `tools/cloudflare_pages_site.mjs`: reusable Cloudflare Pages site primitives for stage/list/delete/deploy

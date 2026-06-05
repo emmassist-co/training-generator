@@ -37,6 +37,14 @@ python3 tools/training_state.py show-recent --limit 5
 - lighter recovery day,
 - exercise substitution.
 
+If you want a repo-local deterministic baseline instead of freeform planning from scratch, start from:
+
+```bash
+python3 tools/generate_training_plan.py --output /tmp/plan.json
+```
+
+Then inspect and improve that draft rather than bypassing history or rewriting from zero.
+
 3. Pull candidate exercises from the local DB with the helper.
 
 Typical search patterns:

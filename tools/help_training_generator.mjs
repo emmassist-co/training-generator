@@ -5,7 +5,7 @@ const payload = {
     {
       name: "Plan a session",
       skill: "create-training-plan",
-      command: "npm run state:eval-plan -- --input /absolute/path/to/session.json",
+      command: "npm run plan:generate -- --output /absolute/path/to/session.json",
       prompt: "Generate my next training session from my local state.",
     },
     {

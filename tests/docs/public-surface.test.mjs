@@ -16,6 +16,7 @@ test("package metadata is generic", async () => {
   assert.ok(pkg.scripts.test);
   assert.ok(pkg.scripts.help);
   assert.ok(pkg.scripts.init);
+  assert.ok(pkg.scripts["plan:generate"]);
   assert.ok(pkg.scripts["render:html"]);
   assert.ok(pkg.scripts["render:module-check"]);
   assert.ok(pkg.scripts["artifacts:list"]);

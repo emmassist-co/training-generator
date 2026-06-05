@@ -15,7 +15,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOCAL_STATE_PATH = ROOT / "data" / "local" / "training-state.json"
 EXAMPLE_STATE_PATH = ROOT / "data" / "training_state.json"
-EXERCISES_PATH = ROOT / "free-exercise-db" / "dist" / "exercises.json"
+EXERCISE_DB_ROOT = Path(os.environ.get("FREE_EXERCISE_DB_DIR", ROOT / "free-exercise-db")).expanduser()
+EXERCISES_PATH = EXERCISE_DB_ROOT / "dist" / "exercises.json"
 DEFAULT_CONFIG_PATH = ROOT / "config" / "training-generator.local.json"
 
 LOWER_STRESS_PRIMARY = {"glutes", "hamstrings", "calves", "abdominals", "lower back", "middle back"}
@@ -322,6 +323,11 @@ def tl1_log_to_session_seed(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_exercises() -> list[dict[str, Any]]:
+    if not EXERCISES_PATH.exists():
+        raise SystemExit(
+            "Exercise database not found. Run `npm install` or `npm run install:exercise-db`, "
+            "or set FREE_EXERCISE_DB_DIR to an existing free-exercise-db checkout."
+        )
     return load_json(EXERCISES_PATH)
 
 
