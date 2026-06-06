@@ -120,7 +120,7 @@ def render_prescription_grid(item: dict[str, Any], css_class: str = "prescriptio
         f'<div class="{css_class}-item"><div class="{css_class}-label">{escape(label)}</div><div class="{css_class}-value">{escape(value)}</div></div>'
         for label, value in fields
     )
-    return f'<div class="{css_class}" style="display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;">{cells}</div>'
+    return f'<div class="{css_class}">{cells}</div>'
 
 
 def render_list(items: list[str], css_class: str) -> str:
@@ -203,8 +203,8 @@ def render_alternatives(items: list[Any], lookup: dict[str, dict[str, Any]]) -> 
     return (
         '<div class="alternatives">'
         '<div class="alternatives-heading">'
-        "<h3>If This Is Taken</h3>"
-        "<p>Keep the same prescription clarity.</p>"
+        "<h3>Swap option</h3>"
+        "<p>Same slot, different setup.</p>"
         "</div>"
         f'<div class="alternatives-grid">{"".join(cards)}</div>'
         "</div>"
@@ -233,70 +233,62 @@ def interactive_training_script() -> str:
       const style = document.createElement("style");
       style.textContent = `
         .session-tracker,
+        .session-launchpad,
         .session-review {
-          margin-top: 16px;
+          margin-top: 12px;
           background: linear-gradient(180deg, var(--card-strong), var(--card));
-          border: 1px solid var(--border);
+          border: 1px solid var(--soft-border);
           border-radius: var(--radius-xl);
           padding: 10px 12px;
           box-shadow: var(--shadow);
         }
         .session-tracker-header,
+        .session-launchpad-header,
         .session-review-header {
           display: flex;
           justify-content: space-between;
-          gap: 10px;
+          gap: 8px;
           align-items: center;
         }
         .session-tracker {
           position: sticky;
           top: max(8px, env(safe-area-inset-top));
           z-index: 20;
-        }
-        .session-tracker-main {
-          min-width: 0;
-          flex: 1 1 auto;
+          padding: 6px 8px;
+          border-radius: 999px;
+          background: color-mix(in oklab, var(--card-strong) 96%, white 4%);
         }
         .session-tracker-meta {
           display: flex;
           align-items: center;
-          gap: 8px;
-          flex: 0 0 auto;
-        }
-        .session-kicker {
-          display: inline-block;
-          text-transform: uppercase;
-          letter-spacing: 0.12em;
-          font-size: 0.62rem;
-          font-weight: 800;
-          color: var(--accent);
-        }
-        .label-icon {
-          margin-right: 0.38rem;
+          gap: 6px;
+          width: 100%;
+          justify-content: flex-start;
+          flex: 1 1 auto;
         }
         .session-title {
           margin-top: 2px;
-          font-size: 0.98rem;
-          line-height: 1.05;
+          font-size: 1rem;
+          line-height: 1.12;
           letter-spacing: -0.02em;
         }
         .session-subtitle,
-        .session-copy-status,
         .exercise-status-copy,
         .session-help,
         .session-empty {
           color: var(--muted);
-          font-size: 0.8rem;
-          line-height: 1.25;
+          font-size: 0.78rem;
+          line-height: 1.32;
         }
         .session-progress-pill {
           flex: 0 0 auto;
-          padding: 6px 9px;
+          padding: 4px 8px;
           border-radius: 999px;
           background: var(--accent-quiet);
           border: 1px solid var(--soft-border);
           color: var(--accent);
-          font-size: 0.74rem;
+          font-family: var(--font-outlier);
+          font-size: 0.72rem;
           font-weight: 800;
         }
         .session-action-row,
@@ -306,8 +298,8 @@ def interactive_training_script() -> str:
         .set-row {
           display: flex;
           flex-wrap: wrap;
-          gap: 8px;
-          margin-top: 12px;
+          gap: 6px;
+          margin-top: 10px;
         }
         .session-button,
         .difficulty-button,
@@ -315,15 +307,15 @@ def interactive_training_script() -> str:
         .swap-button {
           appearance: none;
           border: 1px solid var(--soft-border);
-          background: var(--card-strong);
+          background: transparent;
           color: var(--ink);
           border-radius: 999px;
-          padding: 10px 14px;
+          padding: 8px 12px;
           font: inherit;
-          font-size: 0.9rem;
+          font-size: 0.82rem;
           font-weight: 800;
           line-height: 1.1;
-          min-height: 50px;
+          min-height: 40px;
           justify-content: center;
         }
         .session-button.primary,
@@ -333,9 +325,8 @@ def interactive_training_script() -> str:
           border-color: var(--accent);
           color: white;
         }
-        .session-button.primary,
-        .exercise-button.primary {
-          min-width: 148px;
+        .session-button.primary {
+          min-width: 144px;
         }
         .session-button,
         .exercise-button,
@@ -403,6 +394,7 @@ def interactive_training_script() -> str:
           background: var(--accent-quiet);
           border: 1px solid var(--soft-border);
           padding: 6px 10px;
+          font-family: var(--font-outlier);
           font-size: 0.78rem;
           font-weight: 800;
           color: var(--accent);
@@ -446,14 +438,11 @@ def interactive_training_script() -> str:
         }
         .exercise-controls {
           margin-top: 12px;
-          border-radius: var(--radius-lg);
-          border: 1px solid var(--soft-border);
-          background: var(--card-strong);
-          padding: 12px;
+          border-top: 1px solid var(--soft-border);
+          padding-top: 12px;
         }
         .exercise-card.is-current .exercise-controls {
           border-color: var(--accent);
-          box-shadow: 0 0 0 2px oklch(0.92 0.03 150);
         }
         .exercise-controls-grid {
           display: grid;
@@ -461,10 +450,10 @@ def interactive_training_script() -> str:
           gap: 10px;
         }
         .exercise-control-card {
-          border: 1px solid var(--soft-border);
-          border-radius: var(--radius-md);
-          background: var(--card);
-          padding: 10px;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          padding: 0;
         }
         .exercise-control-card.is-primary-focus {
           grid-column: 1 / -1;
@@ -504,18 +493,16 @@ def interactive_training_script() -> str:
           letter-spacing: 0.08em;
           font-weight: 800;
         }
-        .control-icon {
-          margin-right: 0.3rem;
-        }
         .exercise-control-value {
           margin-top: 6px;
-          font-size: 1.25rem;
+          font-family: var(--font-display);
+          font-size: 1.18rem;
           font-weight: 800;
           line-height: 1;
           letter-spacing: -0.03em;
         }
         .exercise-control-value.emphasis {
-          font-size: 2rem;
+          font-size: 1.88rem;
           line-height: 0.95;
         }
         .exercise-control-value.small {
@@ -524,12 +511,12 @@ def interactive_training_script() -> str:
           letter-spacing: normal;
         }
         .session-review {
-          margin-bottom: 18px;
+          margin-bottom: 0;
         }
         .session-review textarea {
           width: 100%;
-          min-height: 120px;
-          margin-top: 12px;
+          min-height: 96px;
+          margin-top: 10px;
           border-radius: var(--radius-lg);
           border: 1px solid var(--soft-border);
           padding: 12px;
@@ -544,26 +531,17 @@ def interactive_training_script() -> str:
           color: var(--muted);
           font-size: 0.82rem;
         }
-        .session-copy-hint {
-          margin-top: 12px;
-          border-radius: var(--radius-md);
-          border: 1px dashed var(--soft-border);
-          background: var(--accent-quiet);
-          padding: 10px 12px;
-          color: var(--muted);
-          font-size: 0.86rem;
-          line-height: 1.4;
-        }
         .elapsed-pill {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 9px;
+          gap: 5px;
+          padding: 4px 8px;
           border-radius: 999px;
           border: 1px solid var(--soft-border);
           background: var(--card-strong);
           color: var(--muted);
-          font-size: 0.74rem;
+          font-family: var(--font-outlier);
+          font-size: 0.72rem;
           font-weight: 700;
         }
         .swap-button {
@@ -572,6 +550,7 @@ def interactive_training_script() -> str:
         }
         @media print {
           .session-tracker,
+          .session-launchpad,
           .session-review,
           .exercise-controls,
           .swap-button,
@@ -586,12 +565,13 @@ def interactive_training_script() -> str:
             border-top-right-radius: 0;
           }
           .session-tracker-header,
+          .session-launchpad-header,
           .session-review-header {
             align-items: start;
           }
           .session-tracker-meta {
-            flex-wrap: wrap;
-            justify-content: flex-end;
+            width: 100%;
+            justify-content: space-between;
           }
           .session-action-row,
           .difficulty-row,
@@ -615,8 +595,11 @@ def interactive_training_script() -> str:
             grid-template-columns: 1fr;
           }
           .set-counter-layout {
+            flex-direction: column;
+            align-items: stretch;
             gap: 12px;
           }
+          .set-counter-actions { width: 100%; }
         }
         @media (max-width: 28rem) {
           .session-action-row,
@@ -630,7 +613,7 @@ def interactive_training_script() -> str:
             gap: 10px;
           }
           .set-counter-actions {
-            width: min(152px, 42vw);
+            width: 100%;
             gap: 8px;
           }
         }
@@ -1184,7 +1167,7 @@ def interactive_training_script() -> str:
 
       const renderFieldGrid = (fields, classPrefix) => {
         if (!fields.length) return "";
-        return `<div class="${classPrefix}" style="display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;">${fields.map((field) => `
+        return `<div class="${classPrefix}">${fields.map((field) => `
           <div class="${classPrefix}-item">
             <div class="${classPrefix}-label">${escapeHtml(field.label)}</div>
             <div class="${classPrefix}-value">${escapeHtml(field.value)}</div>
@@ -1208,38 +1191,38 @@ def interactive_training_script() -> str:
           <div class="exercise-control-card is-primary-focus">
             <div class="set-counter-layout">
               <div class="set-counter-copy">
-                <div class="exercise-control-label"><span class="control-icon">🔢</span>Set Counter</div>
+                <div class="exercise-control-label">Set count</div>
                 <div class="exercise-control-value emphasis">${exerciseState.completedSets || 0}/${currentVariant.setsTotal}</div>
                 <div class="session-inline-note">${currentVariant.repsLabel ? `${escapeHtml(currentVariant.repsLabel)} reps each set.` : "Count each finished set."}</div>
               </div>
               <div class="set-counter-actions">
-                <button type="button" class="exercise-button primary" data-action="complete-set" data-index="${index}">✅ Set done</button>
-                <button type="button" class="exercise-button" data-action="undo-set" data-index="${index}">↺ Undo</button>
+                <button type="button" class="exercise-button primary" data-action="complete-set" data-index="${index}">Add set</button>
+                <button type="button" class="exercise-button" data-action="undo-set" data-index="${index}">Undo set</button>
               </div>
             </div>
           </div>` : "";
 
         const timerCard = currentVariant.durationSeconds ? `
           <div class="exercise-control-card">
-            <div class="exercise-control-label"><span class="control-icon">⏱️</span>Timer</div>
+            <div class="exercise-control-label">Timer</div>
             <div class="exercise-control-value">${formatClock(getRemainingTimerSeconds(index))}</div>
             <div class="session-inline-note">${escapeHtml(currentVariant.durationLabel || `${currentVariant.durationSeconds}s`)}</div>
             <div class="timer-row">
-              <button type="button" class="exercise-button primary" data-action="toggle-timer" data-index="${index}">${exerciseState.timerEndsAt ? "⏸ Pause" : "▶ Start timer"}</button>
-              <button type="button" class="exercise-button" data-action="reset-timer" data-index="${index}">↺ Reset</button>
+              <button type="button" class="exercise-button primary" data-action="toggle-timer" data-index="${index}">${exerciseState.timerEndsAt ? "Pause" : "Start"}</button>
+              <button type="button" class="exercise-button" data-action="reset-timer" data-index="${index}">Reset</button>
             </div>
           </div>` : "";
 
         const statusCard = `
           <div class="exercise-control-card">
-            <div class="exercise-control-label"><span class="control-icon">📍</span>Status</div>
-            <div class="exercise-control-value small">${exerciseState.completed ? "Marked complete." : "Still in progress."}</div>
-            <div class="session-inline-note">${exerciseState.completed ? "Undo if you want to reopen this exercise." : "Use this when the exercise is fully done."}</div>
+            <div class="exercise-control-label">Status</div>
+            <div class="exercise-control-value small">${exerciseState.completed ? "Completed." : "Still in play."}</div>
+            <div class="session-inline-note">${exerciseState.completed ? "Reopen it if you want this block back in rotation." : "Use this when the block is fully done."}</div>
             <div class="exercise-action-row">
               <button type="button" class="exercise-button ${exerciseState.completed ? "" : "primary"}" data-action="${exerciseState.completed ? "mark-undone" : "mark-done"}" data-index="${index}">
-                ${exerciseState.completed ? "↺ Reopen" : "🏁 Mark done"}
+                ${exerciseState.completed ? "Reopen" : "Mark done"}
               </button>
-              <button type="button" class="exercise-button" data-action="focus-exercise" data-index="${index}">${state.currentExerciseIndex === index ? "🎯 Current" : "🎯 Make current"}</button>
+              <button type="button" class="exercise-button" data-action="focus-exercise" data-index="${index}">${state.currentExerciseIndex === index ? "Current" : "Focus here"}</button>
             </div>
           </div>`;
         const manualStatusCard = currentVariant.setsTotal ? "" : statusCard;
@@ -1250,7 +1233,7 @@ def interactive_training_script() -> str:
             ${timerCard || ""}
             ${manualStatusCard}
           </div>
-          <div class="exercise-status-copy">${state.currentExerciseIndex === index ? "This is the one the tracker follows." : "Make this current if you want the tracker to follow it."}</div>
+          <div class="exercise-status-copy">${state.currentExerciseIndex === index ? "Tracker is following this exercise." : "Focus here if you want the tracker and timer to follow this block."}</div>
         </div>`;
       };
 
@@ -1280,21 +1263,21 @@ def interactive_training_script() -> str:
             <div class="complete-summary-copy">
               <div>${exercise.originalName !== currentVariant.name ? `Used ${escapeHtml(currentVariant.name)} instead of ${escapeHtml(exercise.originalName)}. ` : ""}${currentVariant.setsTotal ? `Sets: ${exerciseState.completedSets || 0}/${currentVariant.setsTotal}. ` : ""}${currentVariant.durationSeconds ? `Time target: ${escapeHtml(currentVariant.durationLabel || `${currentVariant.durationSeconds}s`)}. ` : ""}${exerciseState.completedAt ? `Marked done.` : ""}</div>
               <div class="complete-summary-actions">
-                <button type="button" class="exercise-button" data-action="toggle-complete-details" data-index="${index}">👁 Details</button>
-                <button type="button" class="exercise-button" data-action="mark-undone" data-index="${index}">↺ Reopen</button>
+                <button type="button" class="exercise-button" data-action="toggle-complete-details" data-index="${index}">Show details</button>
+                <button type="button" class="exercise-button" data-action="mark-undone" data-index="${index}">Reopen</button>
               </div>
             </div>
           </div>
           <div class="exercise-state-bar">
             <div class="exercise-state-pill">${exerciseState.completed ? "Done" : state.currentExerciseIndex === index ? "Current" : "Queued"}</div>
-            <div class="session-subtitle">${exercise.originalName !== currentVariant.name ? `Swapped from ${escapeHtml(exercise.originalName)}` : "Original choice active"}</div>
+            <div class="session-subtitle">${exercise.originalName !== currentVariant.name ? `Swapped from ${escapeHtml(exercise.originalName)}` : "Using original setup"}</div>
           </div>
           ${renderExerciseControls(exercise, exerciseState, index)}
           ${(alternatives.length || exercise.noteOnlyAlternatives.length) ? `
             <div class="alternatives">
               <div class="alternatives-heading">
-                <h3><span class="label-icon">🔁</span>Quick Swap</h3>
-                <p>Pick one and it becomes the current exercise.</p>
+                <h3>Swap option</h3>
+                <p>Use another version without losing the slot.</p>
               </div>
               <div class="alternatives-grid">
                 ${alternatives.map(({ variant, variantIndex }) => `
@@ -1306,11 +1289,11 @@ def interactive_training_script() -> str:
                           <h4 class="alternative-title">${escapeHtml(variant.name)}</h4>
                           ${variant.meta.length ? `<div class="alternative-meta">${escapeHtml(variant.meta.join(" · "))}</div>` : ""}
                         </div>
-                        <div class="alternative-kicker">Swap</div>
+                        <div class="alternative-kicker">Option</div>
                       </div>
                       ${renderFieldGrid(variant.fields, "alternative-prescription-grid")}
                       ${variant.note ? `<p class="alternative-note">${escapeHtml(variant.note)}</p>` : ""}
-                      <button type="button" class="swap-button" data-action="swap-variant" data-index="${index}" data-variant-index="${variantIndex}">🔁 Use this instead</button>
+                      <button type="button" class="swap-button" data-action="swap-variant" data-index="${index}" data-variant-index="${variantIndex}">Use option</button>
                     </div>
                   </article>`).join("")}
                 ${exercise.noteOnlyAlternatives.map((note) => `<article class="alternative-card text-only"><p class="alternative-note">${escapeHtml(note)}</p></article>`).join("")}
@@ -1323,6 +1306,10 @@ def interactive_training_script() -> str:
       const tracker = document.createElement("section");
       tracker.className = "session-tracker";
       stack.parentElement.insertBefore(tracker, stack);
+
+      const launchpad = document.createElement("section");
+      launchpad.className = "session-launchpad";
+      tracker.insertAdjacentElement("afterend", launchpad);
 
       const review = document.createElement("section");
       review.className = "session-review";
@@ -1376,25 +1363,31 @@ def interactive_training_script() -> str:
       const renderTracker = () => {
         const total = exercises.length;
         const done = completedCount();
-        const currentIndex = state.currentExerciseIndex;
-        const currentVariant = exercises[currentIndex] ? getCurrentVariant(currentIndex) : null;
         tracker.innerHTML = `
           <div class="session-tracker-header">
-            <div class="session-tracker-main">
-              <div class="session-kicker"><span class="label-icon">🎯</span>Session Tracker</div>
-              <div class="session-title">${state.startedAt ? escapeHtml(currentVariant ? currentVariant.name : "Session complete") : "Start when you are ready"}</div>
-              <div class="session-subtitle">${state.startedAt ? (currentVariant ? `Exercise ${currentIndex + 1} of ${total}.` : "All exercises marked done.") : "No login. Everything stays on this device."}</div>
-            </div>
             <div class="session-tracker-meta">
-              <div class="elapsed-pill">⏱ ${formatElapsed(state.startedAt, state.completedAt)}</div>
+              <div class="elapsed-pill">${formatElapsed(state.startedAt, state.completedAt)}</div>
               <div class="session-progress-pill">${done}/${total} done</div>
             </div>
           </div>
-          <div class="session-action-row">
-            ${state.startedAt ? `<button type="button" class="session-button primary" data-action="jump-current" data-index="${currentIndex}">↘ Current exercise</button>` : `<button type="button" class="session-button primary" data-action="start-session">▶ Start session</button>`}
-            <button type="button" class="session-button" data-action="copy-log">📋 Copy log</button>
+        `;
+      };
+
+      const renderLaunchpad = () => {
+        if (state.startedAt) {
+          launchpad.innerHTML = "";
+          launchpad.hidden = true;
+          return;
+        }
+        launchpad.hidden = false;
+        launchpad.innerHTML = `
+          <div class="session-launchpad-header">
+            <div>
+              <div class="session-kicker">Start</div>
+              <div class="session-title">Begin the session when you are set.</div>
+            </div>
+            <button type="button" class="session-button primary" data-action="start-session">Begin session</button>
           </div>
-          <div class="session-copy-status" id="copy-status">${state.completedAt ? "" : "Use the card below. Count sets, run timers, swap if needed, then mark done."}</div>
         `;
       };
 
@@ -1402,26 +1395,23 @@ def interactive_training_script() -> str:
         review.innerHTML = `
           <div class="session-review-header">
             <div>
-              <div class="session-kicker"><span class="label-icon">📝</span>Finish</div>
-              <div class="session-title">Rate it, add notes, copy</div>
+              <div class="session-kicker">Close out</div>
+              <div class="session-title">Rate the effort and leave a note.</div>
             </div>
-            <div class="session-progress-pill">${state.completedAt ? "Ready to copy" : "In progress"}</div>
+            <div class="session-progress-pill">${state.completedAt ? "Finished" : "In progress"}</div>
           </div>
           <div class="difficulty-row">
             ${[
-              ["easy", "🙂 Easy"],
-              ["right", "👌 Right"],
-              ["hard", "🥵 Hard"],
-              ["too_much", "⚠️ Too much"],
+              ["easy", "Easy"],
+              ["right", "Right"],
+              ["hard", "Hard"],
+              ["too_much", "Too much"],
             ].map(([level, label]) => `<button type="button" class="difficulty-button ${state.difficulty === level ? "is-active" : ""}" data-action="set-difficulty" data-level="${level}">${label}</button>`).join("")}
           </div>
           <div class="session-action-row">
-            <button type="button" class="session-button" data-action="${state.completedAt ? "reopen-training" : "end-training"}">${state.completedAt ? "↺ Reopen training" : "🏁 End training"}</button>
+            <button type="button" class="session-button ${state.completedAt ? "" : "primary"}" data-action="${state.completedAt ? "reopen-training" : "end-training"}">${state.completedAt ? "Reopen session" : "Finish session"}</button>
           </div>
           <textarea id="session-notes" placeholder="Anything to remember: pain, energy, substitutions, confidence, pacing, or anything unusual?">${escapeHtml(state.notes || "")}</textarea>
-          <div class="session-action-row">
-            <button type="button" class="session-button primary" data-action="copy-log">📋 Copy training log</button>
-          </div>
         `;
 
         const notesField = review.querySelector("#session-notes");
@@ -1439,20 +1429,8 @@ def interactive_training_script() -> str:
         normalizeState();
         renderExerciseCards();
         renderTracker();
+        renderLaunchpad();
         renderReview();
-      };
-
-      const copyLog = async () => {
-        const text = buildSummary();
-        try {
-          if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
-          await navigator.clipboard.writeText(text);
-          const status = document.getElementById("copy-status");
-          if (status) status.textContent = "Copied. Paste it back into chat.";
-        } catch {
-          const status = document.getElementById("copy-status");
-          if (status) status.textContent = "Copy failed here.";
-        }
       };
 
       const endTraining = (completed) => {
@@ -1492,7 +1470,6 @@ def interactive_training_script() -> str:
           const variantIndex = Number.parseInt(target.getAttribute("data-variant-index") || "", 10);
           if (Number.isInteger(variantIndex)) swapVariant(index, variantIndex);
         }
-        if (action === "copy-log") copyLog();
         if (action === "end-training") endTraining(true);
         if (action === "reopen-training") endTraining(false);
         if (action === "set-difficulty") {
@@ -1582,29 +1559,31 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{escape(title)}</title>
   <style>
-    /* Hallmark · pre-emit critique: P4 H5 E4 S4 R4 V3 */
-    /* Hallmark · macrostructure: stacked training cards · tone: utilitarian · anchor hue: pine */
+    /* Hallmark · pre-emit critique: P5 H4 E4 S4 R4 V4 */
+    /* Hallmark · genre: modern-minimal · macrostructure: Workbench · tone: utilitarian · anchor hue: pine */
     :root {{
       color-scheme: light;
-      --bg: oklch(0.97 0.012 95);
-      --bg-2: oklch(0.94 0.016 95);
-      --card: oklch(0.985 0.006 95 / 0.94);
-      --card-strong: oklch(0.992 0.004 95);
-      --ink: oklch(0.23 0.02 150);
-      --muted: oklch(0.5 0.015 145);
-      --accent: oklch(0.42 0.09 157);
-      --accent-soft: oklch(0.92 0.03 150);
-      --accent-quiet: oklch(0.965 0.012 150);
-      --border: oklch(0.86 0.015 90);
-      --soft-border: oklch(0.88 0.01 90 / 0.9);
-      --shadow: 0 12px 28px oklch(0.28 0.02 145 / 0.08);
-      --warm: oklch(0.56 0.11 68);
-      --warm-soft: oklch(0.94 0.035 78);
-      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --radius-xl: 24px;
-      --radius-lg: 18px;
+      --bg: oklch(0.978 0.008 92);
+      --bg-2: oklch(0.952 0.012 92);
+      --card: oklch(0.99 0.004 92 / 0.96);
+      --card-strong: oklch(0.995 0.002 92);
+      --ink: oklch(0.26 0.018 145);
+      --muted: oklch(0.53 0.012 140);
+      --accent: oklch(0.42 0.082 155);
+      --accent-soft: oklch(0.93 0.022 150);
+      --accent-quiet: oklch(0.968 0.01 145);
+      --border: oklch(0.88 0.012 92);
+      --soft-border: oklch(0.9 0.008 92 / 0.92);
+      --shadow: 0 14px 30px oklch(0.29 0.012 145 / 0.055);
+      --warm: oklch(0.58 0.075 72);
+      --warm-soft: oklch(0.955 0.02 76);
+      --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+      --font-body: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-outlier: ui-monospace, "SFMono-Regular", "SF Mono", "Cascadia Code", "Liberation Mono", monospace;
+      --radius-xl: 26px;
+      --radius-lg: 20px;
       --radius-md: 14px;
-      --radius-sm: 12px;
+      --radius-sm: 10px;
     }}
     * {{ box-sizing: border-box; }}
     html,
@@ -1613,10 +1592,8 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
     }}
     body {{
       margin: 0;
-      font-family: var(--font);
-      background:
-        radial-gradient(circle at top left, oklch(1 0 0 / 0.65), transparent 34%),
-        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      font-family: var(--font-body);
+      background: linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
       color: var(--ink);
       line-height: 1.42;
     }}
@@ -1626,21 +1603,22 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
       padding:
         max(12px, env(safe-area-inset-top))
         max(12px, env(safe-area-inset-right))
-        max(32px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-bottom))
         max(12px, env(safe-area-inset-left));
     }}
     .hero {{
-      background: linear-gradient(180deg, var(--card-strong), var(--card));
-      border: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--card-strong) 88%, white 12%), var(--card));
+      border: 1px solid var(--soft-border);
       border-radius: var(--radius-xl);
-      padding: 18px;
+      padding: 20px 18px 18px;
       box-shadow: var(--shadow);
     }}
     h1, h2, h3, p {{ margin: 0; }}
     h1 {{
+      font-family: var(--font-display);
       font-size: clamp(1.75rem, 3vw + 1rem, 2.45rem);
-      line-height: 0.98;
-      margin: 6px 0 6px;
+      line-height: 0.96;
+      margin: 8px 0 6px;
       letter-spacing: -0.04em;
       overflow-wrap: anywhere;
       min-width: 0;
@@ -1655,7 +1633,8 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
     }}
     .subtitle {{
       color: var(--muted);
-      font-size: 1rem;
+      font-size: 0.98rem;
+      max-width: 34rem;
     }}
     .hero-copy {{
       max-width: 34rem;
@@ -1667,11 +1646,11 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
       margin-top: 16px;
     }}
     .section {{
-      background: var(--card);
+      background: color-mix(in oklab, var(--card) 92%, white 8%);
       border: 1px solid var(--soft-border);
       border-radius: var(--radius-lg);
       padding: 14px;
-      box-shadow: 0 8px 20px oklch(0.28 0.02 145 / 0.04);
+      box-shadow: 0 6px 16px oklch(0.28 0.02 145 / 0.035);
     }}
     .section h3 {{
       margin-bottom: 8px;
@@ -1698,8 +1677,8 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
       background: var(--card);
       border: 1px solid var(--soft-border);
       border-radius: 22px;
-      padding: 14px;
-      box-shadow: 0 10px 24px oklch(0.28 0.02 145 / 0.05);
+      padding: 15px;
+      box-shadow: 0 10px 24px oklch(0.28 0.02 145 / 0.042);
     }}
     .card-header {{
       display: grid;
@@ -1722,6 +1701,7 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
       min-width: 0;
     }}
     h2 {{
+      font-family: var(--font-display);
       font-size: 1.32rem;
       line-height: 1.02;
       letter-spacing: -0.02em;
@@ -1742,25 +1722,17 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
     }}
     .prescription-grid,
     .alternative-prescription-grid {{
-      display: flex;
-      flex-wrap: nowrap;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       margin-top: 12px;
-      overflow-x: auto;
-      scrollbar-width: none;
-    }}
-    .prescription-grid::-webkit-scrollbar,
-    .alternative-prescription-grid::-webkit-scrollbar {{
-      display: none;
     }}
     .prescription-grid-item,
     .alternative-prescription-grid-item {{
-      flex: 1 1 0;
       min-width: 0;
-      background: var(--card-strong);
-      border: 1px solid var(--soft-border);
-      border-radius: var(--radius-md);
-      padding: 10px 11px;
+      padding: 0 0 8px;
+      border-bottom: 1px solid var(--soft-border);
+      min-width: 0;
     }}
     .prescription-grid-label,
     .alternative-prescription-grid-label {{
@@ -1773,9 +1745,10 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
     .prescription-grid-value,
     .alternative-prescription-grid-value {{
       margin-top: 4px;
-      font-size: 1.12rem;
-      font-weight: 780;
-      line-height: 1.05;
+      font-family: var(--font-display);
+      font-size: 1.08rem;
+      font-weight: 760;
+      line-height: 1.1;
     }}
     .meta-pill {{
       display: inline-flex;
@@ -1813,22 +1786,20 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
     }}
     .execution-notes {{
       margin-top: 12px;
-      background: var(--accent-quiet);
+      background: color-mix(in oklab, var(--accent-quiet) 55%, white 45%);
       border-radius: var(--radius-md);
       padding: 12px 12px 12px 28px;
     }}
     .alternatives {{
       margin-top: 12px;
-      background: oklch(0.975 0.018 82 / 0.95);
-      border: 1px solid oklch(0.88 0.03 82);
-      border-radius: var(--radius-lg);
-      padding: 12px;
+      border-top: 1px solid oklch(0.88 0.03 82);
+      padding-top: 12px;
     }}
     .alternatives-heading {{
       margin-bottom: 10px;
     }}
     .alternatives h3 {{
-      margin-bottom: 3px;
+      margin-bottom: 4px;
       font-size: 0.84rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
@@ -1847,10 +1818,8 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
       grid-template-columns: 96px minmax(0, 1fr);
       gap: 10px;
       align-items: start;
-      background: var(--card-strong);
-      border: 1px solid oklch(0.88 0.02 82);
-      border-radius: var(--radius-md);
-      padding: 10px;
+      padding: 0 0 10px;
+      border-bottom: 1px solid oklch(0.9 0.02 82);
     }}
     .alternative-card.text-only {{
       grid-template-columns: 1fr;
@@ -1885,8 +1854,8 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
     .alternative-kicker {{
       flex: 0 0 auto;
       border-radius: 999px;
-      border: 1px solid oklch(0.86 0.03 82);
-      background: oklch(0.97 0.02 82);
+      border: 1px solid oklch(0.88 0.02 82);
+      background: transparent;
       color: var(--warm);
       font-size: 0.72rem;
       font-weight: 800;
@@ -1940,7 +1909,6 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
       .hero,
       .section,
       .exercise-card,
-      .alternative-card,
       .execution-notes,
       .alternatives {{
         box-shadow: none;
@@ -1976,11 +1944,12 @@ def render_plan(plan: dict[str, Any], lookup: dict[str, dict[str, Any]]) -> str:
       main {{
         padding-top: 16px;
       }}
-      .prescription-grid {{
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }}
+      .prescription-grid,
       .alternative-prescription-grid {{
         grid-template-columns: repeat(4, minmax(0, 1fr));
+      }}
+      .exercise-images {{
+        grid-template-columns: 1.25fr 0.95fr;
       }}
     }}
     @media (max-width: 20rem) {{

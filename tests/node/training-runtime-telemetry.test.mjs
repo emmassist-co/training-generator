@@ -64,9 +64,9 @@ test("rendered runtime exports bounded telemetry for swap, sets, completion, and
   const page = await browser.newPage();
   await page.goto(pathToFileURL(htmlPath).href);
 
-  await page.getByRole("button", { name: /start session/i }).click();
+  await page.getByRole("button", { name: /begin session/i }).click();
   await page.waitForTimeout(150);
-  await page.getByRole("button", { name: /use this instead/i }).click();
+  await page.getByRole("button", { name: /use option/i }).click();
   await page.waitForTimeout(150);
   await page.locator('[data-action="complete-set"][data-index="0"]').click();
   await page.waitForTimeout(150);
