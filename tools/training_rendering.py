@@ -526,6 +526,23 @@ def interactive_training_script() -> str:
           color: var(--ink);
           resize: vertical;
         }
+        .session-log-tools {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 1px solid var(--soft-border);
+        }
+        .session-log-output {
+          min-height: 128px !important;
+          font-family: var(--font-outlier);
+          font-size: 0.78rem !important;
+          line-height: 1.38;
+        }
+        .session-log-status {
+          margin-top: 8px;
+          color: var(--muted);
+          font-size: 0.78rem;
+          line-height: 1.32;
+        }
         .session-inline-note {
           margin-top: 8px;
           color: var(--muted);
@@ -1198,6 +1215,7 @@ def interactive_training_script() -> str:
               <div class="set-counter-actions">
                 <button type="button" class="exercise-button primary" data-action="complete-set" data-index="${index}">Add set</button>
                 <button type="button" class="exercise-button" data-action="undo-set" data-index="${index}">Undo set</button>
+                <button type="button" class="exercise-button" data-action="focus-exercise" data-index="${index}">${state.currentExerciseIndex === index ? "Current" : "Set current"}</button>
               </div>
             </div>
           </div>` : "";
@@ -1360,6 +1378,44 @@ def interactive_training_script() -> str:
         return `TL1 ${JSON.stringify(payload)}`;
       };
 
+      const updateLogStatus = (message) => {
+        const statusNode = review.querySelector(".session-log-status");
+        if (statusNode) statusNode.textContent = message;
+      };
+
+      const syncLogOutput = () => {
+        const output = review.querySelector("#session-log-output");
+        if (output) output.value = buildSummary();
+      };
+
+      const copySessionLog = async () => {
+        const text = buildSummary();
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            syncLogOutput();
+            updateLogStatus("TL1 log copied.");
+            return;
+          }
+        } catch {}
+
+        const output = review.querySelector("#session-log-output");
+        if (output) {
+          output.value = text;
+          output.focus();
+          output.select();
+          try {
+            const copied = document.execCommand("copy");
+            updateLogStatus(copied ? "TL1 log copied." : "Clipboard copy was blocked. Copy the text manually below.");
+          } catch {
+            updateLogStatus("Clipboard copy was blocked. Copy the text manually below.");
+          }
+          return;
+        }
+
+        updateLogStatus("Clipboard copy was blocked. Open this page in a browser that allows copy.");
+      };
+
       const renderTracker = () => {
         const total = exercises.length;
         const done = completedCount();
@@ -1412,12 +1468,21 @@ def interactive_training_script() -> str:
             <button type="button" class="session-button ${state.completedAt ? "" : "primary"}" data-action="${state.completedAt ? "reopen-training" : "end-training"}">${state.completedAt ? "Reopen session" : "Finish session"}</button>
           </div>
           <textarea id="session-notes" placeholder="Anything to remember: pain, energy, substitutions, confidence, pacing, or anything unusual?">${escapeHtml(state.notes || "")}</textarea>
+          ${state.completedAt ? `
+          <div class="session-log-tools">
+            <div class="session-action-row">
+              <button type="button" class="session-button primary" data-action="copy-session-log">Copy log</button>
+            </div>
+            <textarea id="session-log-output" class="session-log-output" readonly>${escapeHtml(buildSummary())}</textarea>
+            <div class="session-log-status">Copy the TL1 log after finishing so it can be pasted back into the logger.</div>
+          </div>` : ""}
         `;
 
         const notesField = review.querySelector("#session-notes");
         notesField?.addEventListener("input", (event) => {
           state.notes = event.target.value;
           saveState();
+          syncLogOutput();
         });
       };
 
@@ -1472,6 +1537,7 @@ def interactive_training_script() -> str:
         }
         if (action === "end-training") endTraining(true);
         if (action === "reopen-training") endTraining(false);
+        if (action === "copy-session-log") copySessionLog();
         if (action === "set-difficulty") {
           state.difficulty = target.getAttribute("data-level") || "";
           saveState();
