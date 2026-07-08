@@ -39,6 +39,7 @@ Requirements:
 - The PDF path should prefer repo-local dependencies from `package.json`; the script's bundled-runtime fallback is only a backup.
 - Every primary exercise must state sets, reps or time, and rest when applicable in a blunt, scan-first format.
 - Every alternative exercise must carry the same prescription clarity: sets, reps or time, rest, and load when relevant.
+- Unilateral movements must explicitly say whether reps are `each side` or `total alternating`. Example: `3 sets · 10 each side · 75s rest`.
 
 Recommended plan JSON shape:
 

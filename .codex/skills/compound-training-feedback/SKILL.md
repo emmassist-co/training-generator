@@ -6,6 +6,7 @@ description: Convert user feedback on a proposed or completed training session i
 # Compound Training Feedback
 
 Use this skill after the user gives feedback on a generated plan, a rendered session, or a completed session and you want future planning to remember it.
+In this repo, this should usually run as part of post-session logging when the workout reveals durable preference or limiter signal.
 
 Read [references/feedback-profile-format.md](./references/feedback-profile-format.md) before updating state.
 
@@ -102,4 +103,3 @@ Do not stop at summarizing the feedback.
 1. Save the patch into local state with `update-feedback-profile`.
 2. Confirm the profile changed.
 3. Explain what future planning should do differently because of it.
-

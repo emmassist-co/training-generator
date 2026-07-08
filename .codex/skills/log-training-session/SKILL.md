@@ -7,16 +7,19 @@ description: Convert a free-form workout report into structured local training h
 
 Use this skill when the user says what they trained and wants that preserved in local state.
 That same local state file also carries the user profile and planning preferences.
+This skill should normally compound the planning/profile surface after logging when the session reveals durable signal.
 
 Read [references/state-and-log-format.md](./references/state-and-log-format.md) before logging.
+Read [../compound-training-feedback/references/feedback-profile-format.md](../compound-training-feedback/references/feedback-profile-format.md) before deciding whether to update durable preferences.
 
 ## Authority
 
 The agent interprets the workout and extracts coaching signal.
 
-- The helper script only appends structured state.
+- The helper script only appends structured state or updates the feedback profile.
 - Do not offload meaning-making to the script.
 - After logging, explain what this session means for progression, motivation, recovery, and the next plan.
+- If the session reveals durable preference signal, update the feedback profile in the same pass instead of leaving that learning in chat only.
 
 ## Workflow
 
@@ -40,7 +43,17 @@ python3 tools/training_state.py summarize-state
 python3 tools/training_state.py log-session --input /tmp/session.json
 ```
 
-4. After logging, report the implications for planning.
+4. Decide whether the session also changed the durable profile.
+- If the session reveals stable signal about exercise repetition, novelty appetite, setup friction, conditioning tolerance, load appetite, session density, or what tends to fail first, write a compact patch and store it:
+
+```bash
+python3 tools/training_state.py update-feedback-profile --input /tmp/training-feedback.json
+```
+
+- Prefer narrow durable signals over one-off impressions.
+- If the session gives no new durable preference signal, say so explicitly.
+
+5. After logging, report the implications for planning.
 - what stressor was added,
 - what seems to be tolerated,
 - what the next session should probably bias toward or avoid.
@@ -56,11 +69,14 @@ python3 tools/training_state.py log-session --input /tmp/session.json
 - Translate subjective notes into structured constraints when possible.
 - If the user reports pain spikes, instability, unusual fatigue, or clearly worse response, make sure that appears in `next_session_constraints`.
 - If the user reports boredom, confidence gains, dread, or unusually strong enjoyment, store that signal so future plans can adapt.
+- If the user repeatedly reports that one part of the session is the limiter, store that as a durable signal when it is likely to matter for future planning.
+- When there is enough evidence, prefer updating `planning_feedback_profile` over editing the main profile prose.
 
 ## Required Follow-Through
 
 Do not stop at restating the session.
 Actually update the local state file and confirm that it changed.
+Also confirm whether the feedback profile changed, and if not, why not.
 
 ## Ask Only If Needed
 
