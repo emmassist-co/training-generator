@@ -87,7 +87,12 @@ def format_prescription(item: dict[str, Any]) -> str:
     if item.get("sets") is not None:
         parts.append(f"{item['sets']} sets")
     if item.get("reps") is not None:
-        parts.append(f"{item['reps']} reps")
+        reps_value = f"{item['reps']}"
+        if item.get("side_mode") == "each-side":
+            reps_value = f"{reps_value} each side"
+        elif item.get("side_mode") == "alternating-total":
+            reps_value = f"{reps_value} total alternating"
+        parts.append(f"{reps_value} reps")
     if item.get("duration") is not None:
         parts.append(str(item["duration"]))
     if item.get("rest_seconds") is not None:
@@ -102,7 +107,12 @@ def prescription_fields(item: dict[str, Any]) -> list[tuple[str, str]]:
     if item.get("sets") is not None:
         fields.append(("Sets", str(item["sets"])))
     if item.get("reps") is not None:
-        fields.append(("Reps", str(item["reps"])))
+        reps_value = f"{item['reps']}"
+        if item.get("side_mode") == "each-side":
+            reps_value = f"{reps_value} each side"
+        elif item.get("side_mode") == "alternating-total":
+            reps_value = f"{reps_value} total alternating"
+        fields.append(("Reps", reps_value))
     if item.get("duration") is not None:
         fields.append(("Time", str(item["duration"])))
     if item.get("rest_seconds") is not None:
@@ -1204,13 +1214,18 @@ def interactive_training_script() -> str:
 
       const renderExerciseControls = (exercise, exerciseState, index) => {
         const currentVariant = getCurrentVariant(index);
+        const setCountNote = currentVariant.repsLabel
+          ? currentVariant.repsLabel.toLowerCase().includes("each side")
+            ? `${escapeHtml(currentVariant.repsLabel)}. Left + right = 1 set.`
+            : `${escapeHtml(currentVariant.repsLabel)} reps each set.`
+          : "Count each finished set.";
         const setCounter = currentVariant.setsTotal ? `
           <div class="exercise-control-card is-primary-focus">
             <div class="set-counter-layout">
               <div class="set-counter-copy">
                 <div class="exercise-control-label">Set count</div>
                 <div class="exercise-control-value emphasis">${exerciseState.completedSets || 0}/${currentVariant.setsTotal}</div>
-                <div class="session-inline-note">${currentVariant.repsLabel ? `${escapeHtml(currentVariant.repsLabel)} reps each set.` : "Count each finished set."}</div>
+                <div class="session-inline-note">${setCountNote}</div>
               </div>
               <div class="set-counter-actions">
                 <button type="button" class="exercise-button primary" data-action="complete-set" data-index="${index}">Add set</button>
