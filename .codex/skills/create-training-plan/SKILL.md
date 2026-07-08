@@ -9,6 +9,7 @@ Use this skill when the user wants a new session, a next-step progression, or a 
 
 Start from local state, not from scratch.
 The active user profile is part of that same local state file.
+Treat the stored feedback profile as part of the evolving user profile, not as optional side metadata.
 
 Read [references/state-and-db.md](./references/state-and-db.md) before using the helper commands.
 Read [references/artifact-format.md](./references/artifact-format.md) before finalizing the output.
@@ -31,6 +32,8 @@ python3 tools/training_state.py show-recent --limit 5
 python3 tools/training_state.py read-feedback-profile
 ```
 
+When recent sessions reveal stable new signal that has not yet been compounded into `planning_feedback_profile`, infer that signal during planning and call it out explicitly in your reasoning.
+
 2. Infer the immediate planning need:
 - new full-body session,
 - lower-body strength day,
@@ -38,13 +41,13 @@ python3 tools/training_state.py read-feedback-profile
 - lighter recovery day,
 - exercise substitution.
 
-If you want a repo-local deterministic baseline instead of freeform planning from scratch, start from:
+If you want a repo-local retrieval-first baseline instead of freeform planning from scratch, start from:
 
 ```bash
 python3 tools/generate_training_plan.py --output /tmp/plan.json
 ```
 
-Then inspect and improve that draft rather than bypassing history or rewriting from zero.
+That script now retrieves bucketed candidates from local state plus `free-exercise-db` before composing a draft. Inspect and improve that draft rather than bypassing history or rewriting from zero.
 
 3. Pull candidate exercises from the local DB with the helper.
 
@@ -60,6 +63,7 @@ python3 tools/training_state.py search-exercises --include-muscles quadriceps ad
 - Prefer exercises marked `prefer`.
 - Use `caution` only when dose and execution can be tightly controlled.
 - Do not recommend `avoid` exercises unless the user explicitly asks for a risk tradeoff analysis.
+- For unilateral movements, make the prescription explicit about whether reps are `each side` or `total alternating`. Do not leave one-arm or one-leg work ambiguous.
 
 5. Produce a session that is easy to execute and easy to log later.
 6. Update the reasoning based on the user's longer arc:
@@ -90,6 +94,7 @@ python3 tools/training_state.py evaluate-plan --input /tmp/plan.json
 - Handle exercise evolution explicitly. Reuse proven movements when they are working, progress them gradually, and rotate only when motivation, tolerance, or equipment makes that useful.
 - Handle weight evolution explicitly. Prefer training structures that support consistent adherence, manageable fatigue, and knee-friendly calorie expenditure.
 - Treat `planning_feedback_profile` as sticky operator preference. If it says the user prefers, avoids, repeats, rotates, lightens, or shortens something, reflect that unless newer evidence clearly overrides it.
+- Treat repeated post-session lessons as profile evolution. If a pattern is showing up across multiple sessions, plan from that pattern even if the prose profile has not been manually rewritten.
 
 ## Output Shape
 

@@ -237,7 +237,7 @@ npm run plan:pdf -- --input /absolute/path/to/session.html --output /absolute/pa
 ## How It Fits Together
 
 - `tools/training_rendering.py`: reusable render module for session JSON -> phone-first HTML
-- `tools/generate_training_plan.py`: deterministic baseline generator from local state and recent history
+- `tools/generate_training_plan.py`: retrieval-first baseline planner that builds bucketed candidates from local state and `free-exercise-db`, then emits a renderer-compatible session draft
 - `tools/render_training_plan.py`: thin CLI wrapper around the renderer module
 - `tools/manage_training_artifacts.mjs`: lists or deletes rendered HTML/PDF artifacts in `output/training-plans/`
 - `tools/cloudflare_pages_site.mjs`: reusable Cloudflare Pages site primitives for stage/list/delete/deploy
