@@ -41,7 +41,7 @@ export function renderChatPage() {
           <button type="button" class="chip" data-profile="catarina">catarina</button>
         </div>
       </div>
-      <div class="status" id="status">protected by Cloudflare Access</div>
+      <div class="status" id="status">password protected</div>
     </header>
     <section class="chat" id="chat" aria-live="polite"></section>
     <form id="form">
@@ -100,7 +100,7 @@ export function renderChatPage() {
       status.textContent = 'thinking…';
       append('user', raw);
       const replyNode = append('assistant', '…');
-      const body = 'Current selected profile_id is "' + profile + '". Use this profile unless the user clearly names another one.\n\n' + raw;
+      const body = 'Current selected profile_id is "' + profile + '". Use this profile unless the user clearly names another one.\\n\\n' + raw;
       try {
         const admission = await client.send({ message: { kind: 'user', body }, uid, idempotencyKey: crypto.randomUUID() });
         uid = admission.uid;
