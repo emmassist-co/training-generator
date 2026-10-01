@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMemoryExerciseCatalog, searchExerciseItems, summarizeExercise } from "../../src/db/exercise-catalog.mjs";
+import { createD1ExerciseCatalog, createMemoryExerciseCatalog, searchExerciseItems, summarizeExercise } from "../../src/db/exercise-catalog.mjs";
 
 const raw = [
   { id: "Cable_Row", name: "Cable Row", category: "strength", equipment: "cable", primaryMuscles: ["middle back", "lats"], images: ["row/0.jpg"] },
@@ -32,3 +32,47 @@ test("user overlays can avoid exercises without changing base catalog", async ()
   assert.equal(results.some((item) => item.id === "Cable_Row"), false);
   assert.equal(results.some((item) => item.id === "Dumbbell_Row"), true);
 });
+
+test("D1 catalog searches persisted exercise rows with profile overlays", async () => {
+  const db = createFakeD1({
+    catalog: raw.map(summarizeExercise),
+    overlays: [{ exercise_id: "Cable_Row", preference: "avoid", note: "Too much setup." }],
+  });
+  const catalog = createD1ExerciseCatalog(db);
+  const results = await catalog.search({ include_muscles: ["middle back"], allowed_risk: ["prefer", "caution"] });
+  assert.deepEqual(results.map((item) => item.id), ["Dumbbell_Row"]);
+});
+
+function createFakeD1({ catalog, overlays }) {
+  return {
+    prepare(sql) {
+      return {
+        bind() {
+          return this;
+        },
+        async all() {
+          if (sql.includes("exercise_catalog")) {
+            return {
+              results: catalog.map((item) => ({
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                equipment: item.equipment,
+                muscles_json: JSON.stringify(item.muscles),
+                instructions_json: JSON.stringify(item.instructions),
+                images_json: JSON.stringify(item.images),
+                risk: item.risk,
+                search_text: item.search_text,
+              })),
+            };
+          }
+          if (sql.includes("exercise_overlays")) return { results: overlays };
+          return { results: [] };
+        },
+        async run() {
+          return { success: true };
+        },
+      };
+    },
+  };
+}

@@ -48,7 +48,8 @@
     "@flue/sdk": "^2.2.2",
     "hono": "^4.13.12",
     "playwright": "1.60.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "valibot": "^1.5.0"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.62.4",

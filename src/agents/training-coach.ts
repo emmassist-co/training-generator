@@ -3,14 +3,20 @@
 import { env } from "cloudflare:workers";
 import { useModel, usePersistentState, useTool } from "@flue/runtime";
 import instructions from "./instructions/training-coach.md?raw";
+import { createD1ExerciseCatalog } from "../db/exercise-catalog.mjs";
 import { createD1TrainingStore } from "../db/training-store.mjs";
+import { searchExercisesTool } from "../tools/exercise-tools.mjs";
 
 export function TrainingCoach() {
   useModel("openrouter/moonshotai/kimi-k2.6", { thinkingLevel: "medium" });
   const [activeSessionId, setActiveSessionId] = usePersistentState<string | undefined>("activeSessionId");
   const [lastProposalId, setLastProposalId] = usePersistentState<string | undefined>("lastProposalId");
 
-  const store = createD1TrainingStore((env as { TRAINING_DB: D1Database }).TRAINING_DB);
+  const trainingDb = (env as { TRAINING_DB: D1Database }).TRAINING_DB;
+  const store = createD1TrainingStore(trainingDb);
+  const catalog = createD1ExerciseCatalog(trainingDb);
+
+  useTool(searchExercisesTool(catalog));
 
   useTool({
     name: "get_training_context",

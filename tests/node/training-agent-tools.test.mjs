@@ -26,9 +26,9 @@ test("exercise search tool respects feedback overlays", async () => {
     ],
     [{ exercise_id: "Cable_Row", preference: "avoid", note: "Busy setup." }],
   );
-  const result = await searchExercisesTool(catalog).run({ include_muscles: ["middle back"], allowed_risk: ["prefer", "caution"] });
-  assert.equal(result.results.some((item) => item.id === "Cable_Row"), false);
-  assert.equal(result.results[0].id, "Dumbbell_Row");
+  const result = await searchExercisesTool(catalog).run({ data: { include_muscles: ["middle back"], allowed_risk: ["prefer", "caution"] } });
+  assert.equal(result.output.results.some((item) => item.id === "Cable_Row"), false);
+  assert.equal(result.output.results[0].id, "Dumbbell_Row");
 });
 
 test("session tools enforce propose before approved apply", async () => {

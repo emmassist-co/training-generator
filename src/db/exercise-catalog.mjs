@@ -45,6 +45,43 @@ export function createMemoryExerciseCatalog(rawExercises = [], overlays = []) {
   };
 }
 
+export function createD1ExerciseCatalog(db, { profileId = "default" } = {}) {
+  if (!db || typeof db.prepare !== "function") {
+    throw new Error("TRAINING_DB D1 binding is required.");
+  }
+  return {
+    async search(query = {}) {
+      const [catalogRows, overlayRows] = await Promise.all([
+        db.prepare("SELECT * FROM exercise_catalog").all(),
+        db.prepare("SELECT exercise_id, preference, note FROM exercise_overlays WHERE profile_id = ?").bind(profileId).all(),
+      ]);
+      const items = (catalogRows.results || []).map(rowToExerciseItem);
+      const overlayByExercise = new Map((overlayRows.results || []).map((overlay) => [overlay.exercise_id, overlay]));
+      return searchExerciseItems(items, query, overlayByExercise);
+    },
+    async upsertOverlay({ exercise_id, preference, note }) {
+      await db.prepare("INSERT OR REPLACE INTO exercise_overlays (id, profile_id, exercise_id, preference, note) VALUES (?, ?, ?, ?, ?)")
+        .bind(`${profileId}:${exercise_id}`, profileId, exercise_id, preference, note || null)
+        .run();
+      return { profile_id: profileId, exercise_id, preference, note: note || null };
+    },
+  };
+}
+
+function rowToExerciseItem(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    equipment: row.equipment,
+    muscles: JSON.parse(row.muscles_json || "[]"),
+    instructions: JSON.parse(row.instructions_json || "[]"),
+    images: JSON.parse(row.images_json || "[]"),
+    risk: row.risk || "caution",
+    search_text: row.search_text || "",
+  };
+}
+
 export function searchExerciseItems(items, query = {}, overlayByExercise = new Map()) {
   const includeMuscles = (query.include_muscles || query.includeMuscles || []).map(normalizeText).filter(Boolean);
   const excludeIds = new Set((query.exclude_ids || query.excludeIds || []).map(String));

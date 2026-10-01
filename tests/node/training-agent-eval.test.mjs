@@ -21,6 +21,7 @@ test("Flue scaffold declares use agent module and route", async () => {
   assert.match(agent, /useModel\(\s*["']openrouter\/moonshotai\/kimi-k2\.6["']/);
   assert.doesNotMatch(agent, /useModel\(\s*["']cloudflare\//);
   assert.doesNotMatch(agent, /OPENROUTER_API_KEY/);
+  assert.match(agent, /searchExercisesTool\(catalog\)/);
   assert.match(agent, /propose_session_change/);
   assert.match(agent, /apply_approved_change/);
   assert.match(app, /createAgentRouter\(TrainingCoach\)/);

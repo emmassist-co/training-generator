@@ -14,11 +14,12 @@ test("hosted training flow creates, changes, runs, and completes without live AI
     { id: "Dumbbell_Row", name: "Dumbbell Row", category: "strength", equipment: "dumbbell", primaryMuscles: ["middle back"] },
   ]);
 
-  const candidates = await searchExercisesTool(catalog).run({ include_muscles: ["middle back"], equipment: ["cable"] });
+  const candidates = await searchExercisesTool(catalog).run({ data: { include_muscles: ["middle back"], equipment: ["cable"] } });
+  const candidate = candidates.output.results[0];
   const planned = await createSessionTool(store).run({
     id: "hosted-session",
     title: "Hosted Session",
-    exercises: [{ id: "ex-1", exercise_id: candidates.results[0].id, name: candidates.results[0].name, sets: 3, reps: 10 }],
+    exercises: [{ id: "ex-1", exercise_id: candidate.id, name: candidate.name, sets: 3, reps: 10 }],
   });
 
   const proposal = await proposeSessionChangeTool(store).run({
