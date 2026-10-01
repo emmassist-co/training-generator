@@ -1,6 +1,6 @@
 # Training Coach Knowledge Pack
 
-This repo ships the hosted coach with a bundled method prompt at `src/agents/instructions/training-method.md`.
+This repo ships the hosted coach with a bundled skill at `src/agents/skills/training-coach/SKILL.md` plus focused reference files under `src/agents/skills/training-coach/references/`.
 
 The method turns public training guidance into operating rules for the agent:
 

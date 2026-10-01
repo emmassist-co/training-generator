@@ -4,10 +4,18 @@ import { env } from "cloudflare:workers";
 import { useModel, usePersistentState, useTool } from "@flue/runtime";
 import * as v from "valibot";
 import instructions from "./instructions/training-coach.md?raw";
-import trainingMethod from "./instructions/training-method.md?raw";
+import trainingCoachSkill from "./skills/training-coach/SKILL.md?raw";
+import evidenceAnchors from "./skills/training-coach/references/evidence-anchors.md?raw";
+import planningLoop from "./skills/training-coach/references/planning-loop.md?raw";
+import adaptationModel from "./skills/training-coach/references/adaptation-model.md?raw";
+import sessionDesign from "./skills/training-coach/references/session-design.md?raw";
+import inSessionCoaching from "./skills/training-coach/references/in-session-coaching.md?raw";
+import loggingAndProfileLearning from "./skills/training-coach/references/logging-and-profile-learning.md?raw";
+import safetyBoundaries from "./skills/training-coach/references/safety-boundaries.md?raw";
 import { createD1ExerciseCatalog } from "../db/exercise-catalog.mjs";
 import { createD1TrainingStore } from "../db/training-store.mjs";
 import { searchExercisesTool } from "../tools/exercise-tools.mjs";
+import { reviewTrainingPlanTool } from "../tools/plan-review-tool.mjs";
 
 export function TrainingCoach() {
   useModel("openrouter/moonshotai/kimi-k2.6", { thinkingLevel: "medium" });
@@ -19,6 +27,7 @@ export function TrainingCoach() {
   const catalog = createD1ExerciseCatalog(trainingDb);
 
   useTool(searchExercisesTool(catalog));
+  useTool(reviewTrainingPlanTool(store));
 
   useTool({
     name: "list_profiles",
@@ -144,5 +153,15 @@ export function TrainingCoach() {
     },
   });
 
-  return `${instructions}\n\n${trainingMethod}`;
+  return [
+    instructions,
+    trainingCoachSkill,
+    evidenceAnchors,
+    planningLoop,
+    adaptationModel,
+    sessionDesign,
+    inSessionCoaching,
+    loggingAndProfileLearning,
+    safetyBoundaries,
+  ].join("\n\n");
 }
