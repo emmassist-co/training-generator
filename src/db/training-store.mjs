@@ -119,24 +119,32 @@ export function createMemoryTrainingStore(seed = {}) {
         preferences: {},
         planning_feedback_profile: { summary_notes: [], signals: [] },
       };
-      const recent_sessions = [...sessions.values()]
-        .filter((session) => session.profile_id === profileId)
-        .sort((a, b) => String(b.completed_at || b.planned_at).localeCompare(String(a.completed_at || a.planned_at)))
-        .slice(0, recentLimit)
-        .map((session) => ({
-          id: session.id,
-          title: session.title,
-          status: session.status,
-          focus: clone(session.focus),
-          completed_at: session.completed_at,
-          active_version: session.active_version,
-        }));
+      const recent_sessions = await this.listTrainingHistory({ profileId, limit: recentLimit });
       return {
         profile: clone(profile.profile),
         preferences: clone(profile.preferences),
         planning_feedback_profile: clone(profile.planning_feedback_profile),
         recent_sessions,
       };
+    },
+
+    async listTrainingHistory({ profileId = DEFAULT_PROFILE_ID, limit = 10, offset = 0, status } = {}) {
+      return [...sessions.values()]
+        .filter((session) => session.profile_id === profileId)
+        .filter((session) => !status || session.status === status)
+        .sort((a, b) => String(b.completed_at || b.planned_at).localeCompare(String(a.completed_at || a.planned_at)))
+        .slice(offset, offset + limit)
+        .map((session) => ({
+          id: session.id,
+          title: session.title,
+          status: session.status,
+          focus: clone(session.focus),
+          summary: session.summary || session.completion?.summary || null,
+          completed_at: session.completed_at,
+          planned_at: session.planned_at,
+          active_version: session.active_version,
+          exercise_count: [...exercises.values()].filter((exercise) => exercise.session_id === session.id && exercise.is_active !== false).length,
+        }));
     },
 
     async createSession(input) {
@@ -357,19 +365,39 @@ export function createD1TrainingStore(db) {
 
     async getTrainingContext({ profileId = DEFAULT_PROFILE_ID, recentLimit = 5 } = {}) {
       const profile = await db.prepare("SELECT * FROM profiles WHERE id = ?").bind(profileId).first();
-      const sessions = await db
-        .prepare("SELECT id, title, status, focus_json, completed_at, active_version FROM sessions WHERE profile_id = ? ORDER BY COALESCE(completed_at, planned_at) DESC LIMIT ?")
-        .bind(profileId, recentLimit)
-        .all();
       return {
         profile: profile ? JSON.parse(profile.profile_json) : {},
         preferences: profile ? JSON.parse(profile.preferences_json) : {},
         planning_feedback_profile: profile ? JSON.parse(profile.feedback_profile_json) : { summary_notes: [], signals: [] },
-        recent_sessions: (sessions.results || []).map((session) => ({
-          ...session,
-          focus: JSON.parse(session.focus_json || "[]"),
-        })),
+        recent_sessions: await this.listTrainingHistory({ profileId, limit: recentLimit }),
       };
+    },
+
+    async listTrainingHistory({ profileId = DEFAULT_PROFILE_ID, limit = 10, offset = 0, status } = {}) {
+      const cappedLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+      const safeOffset = Math.max(Number(offset) || 0, 0);
+      const where = status ? "WHERE s.profile_id = ? AND s.status = ?" : "WHERE s.profile_id = ?";
+      const bindings = status ? [profileId, status, cappedLimit, safeOffset] : [profileId, cappedLimit, safeOffset];
+      const rows = await db.prepare(`
+        SELECT s.id, s.title, s.status, s.focus_json, s.summary, s.completed_at, s.planned_at, s.active_version, COUNT(se.id) AS exercise_count
+        FROM sessions s
+        LEFT JOIN session_exercises se ON se.session_id = s.id AND se.is_active = 1
+        ${where}
+        GROUP BY s.id
+        ORDER BY COALESCE(s.completed_at, s.planned_at) DESC
+        LIMIT ? OFFSET ?
+      `).bind(...bindings).all();
+      return (rows.results || []).map((session) => ({
+        id: session.id,
+        title: session.title,
+        status: session.status,
+        focus: JSON.parse(session.focus_json || "[]"),
+        summary: session.summary,
+        completed_at: session.completed_at,
+        planned_at: session.planned_at,
+        active_version: session.active_version,
+        exercise_count: session.exercise_count,
+      }));
     },
 
     async createSession(input) {

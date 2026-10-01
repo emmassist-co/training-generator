@@ -66,3 +66,16 @@ test("completion saves telemetry for future context", async () => {
   assert.equal(completed.telemetry.elapsed_seconds, 1200);
   assert.equal(completed.events.some((event) => event.type === "session_completed"), true);
 });
+
+test("history listing exposes older profile sessions beyond recent context", async () => {
+  const store = createMemoryTrainingStore();
+  await store.createSession({ id: "old", profile_id: "alexandre", title: "Old Session", planned_at: "2026-01-01", completed_at: "2026-01-01", status: "completed", exercises: [{ name: "Row" }] });
+  await store.createSession({ id: "new", profile_id: "alexandre", title: "New Session", planned_at: "2026-02-01", completed_at: "2026-02-01", status: "completed", exercises: [{ name: "Press" }, { name: "Run" }] });
+
+  const recent = await store.getTrainingContext({ profileId: "alexandre", recentLimit: 1 });
+  const history = await store.listTrainingHistory({ profileId: "alexandre", limit: 10 });
+
+  assert.deepEqual(recent.recent_sessions.map((session) => session.id), ["new"]);
+  assert.deepEqual(history.map((session) => session.id), ["new", "old"]);
+  assert.equal(history[0].exercise_count, 2);
+});

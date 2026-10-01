@@ -38,6 +38,24 @@ export function TrainingCoach() {
   });
 
   useTool({
+    name: "list_training_history",
+    description: "List previous sessions for a profile with pagination. Use this when recent context is not enough or the user asks about older training history.",
+    input: v.object({ profile_id: v.optional(v.string()), limit: v.optional(v.number()), offset: v.optional(v.number()), status: v.optional(v.string()) }),
+    async run({ data }) {
+      return { output: { sessions: await store.listTrainingHistory({ profileId: data.profile_id || "default", limit: data.limit || 10, offset: data.offset || 0, status: data.status }) } };
+    },
+  });
+
+  useTool({
+    name: "get_training_session",
+    description: "Read one saved training session with exercises, completion details, events, and telemetry. Use this when a previous session's details matter.",
+    input: v.object({ session_id: v.string() }),
+    async run({ data }) {
+      return { output: await store.getSession(data.session_id) };
+    },
+  });
+
+  useTool({
     name: "create_training_session",
     description: "Persist a planned training session for one profile after checking context and exercise candidates. Include ordered exercises with prescriptions, alternatives, and rationale.",
     input: v.object({
