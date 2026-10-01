@@ -60,6 +60,34 @@ export function TrainingCoach() {
   });
 
   useTool({
+    name: "propose_profile_update",
+    description: "Create a durable profile-learning proposal without changing future training context. Use before saving preferences, constraints, injuries, or repeated adherence signals.",
+    input: v.object({ profile_id: v.optional(v.string()), proposal_id: v.optional(v.string()), patch: v.any(), reason: v.optional(v.string()), created_by: v.optional(v.string()) }),
+    async run({ data }) {
+      return { output: await store.proposeProfileUpdate({ ...data, profile_id: data.profile_id || "default" }) };
+    },
+  });
+
+  useTool({
+    name: "apply_profile_update",
+    description: "Apply a user-approved profile-learning proposal so future plans can use it. Do not call before explicit approval.",
+    input: v.object({ profile_id: v.optional(v.string()), proposal_id: v.optional(v.string()), patch: v.optional(v.any()), approved_by: v.optional(v.string()) }),
+    async run({ data }) {
+      if (!data.proposal_id && !data.patch) throw new Error("proposal_id or patch is required.");
+      return { output: await store.applyProfileUpdate({ ...data, profile_id: data.profile_id || "default" }) };
+    },
+  });
+
+  useTool({
+    name: "reject_profile_update",
+    description: "Record that the user rejected a durable profile-learning proposal without changing context.",
+    input: v.object({ profile_id: v.optional(v.string()), proposal_id: v.string(), reason: v.optional(v.string()) }),
+    async run({ data }) {
+      return { output: await store.rejectProfileUpdate({ ...data, profile_id: data.profile_id || "default" }) };
+    },
+  });
+
+  useTool({
     name: "get_training_context",
     description: "Read the saved training profile, preferences, feedback signals, and recent sessions for one profile. Use this before planning or advising.",
     input: v.object({ profile_id: v.optional(v.string()), recent_limit: v.optional(v.number()) }),
@@ -106,12 +134,33 @@ export function TrainingCoach() {
 
   useTool({
     name: "get_active_session",
-    description: "Read the current active session snapshot, including exercises, active version, events, and telemetry.",
-    input: v.object({ session_id: v.optional(v.string()) }),
+    description: "Read the current active or planned session snapshot, including exercises, active version, events, and telemetry.",
+    input: v.object({ session_id: v.optional(v.string()), profile_id: v.optional(v.string()) }),
     async run({ data }) {
-      const sessionId = data.session_id || activeSessionId;
-      if (!sessionId) throw new Error("No active session id is known.");
-      return { output: await store.getSession(sessionId) };
+      const session = data.session_id || activeSessionId
+        ? await store.getSession(data.session_id || activeSessionId)
+        : await store.getActiveOrPlannedSession({ profileId: data.profile_id || "default" });
+      if (!session) throw new Error("No active or planned session is known.");
+      return { output: session };
+    },
+  });
+
+  useTool({
+    name: "list_active_or_planned_sessions",
+    description: "Read the current active session for a profile, or the newest planned session if none is active. Use this for home/action parity.",
+    input: v.object({ profile_id: v.optional(v.string()) }),
+    async run({ data }) {
+      return { output: { active_session: await store.getActiveOrPlannedSession({ profileId: data.profile_id || "default" }) } };
+    },
+  });
+
+  useTool({
+    name: "start_session",
+    description: "Mark a planned hosted training session as active and record an idempotent start event.",
+    input: v.object({ session_id: v.string(), started_at: v.optional(v.string()), idempotency_key: v.optional(v.string()) }),
+    async run({ data }) {
+      setActiveSessionId(data.session_id);
+      return { output: await store.startSession(data) };
     },
   });
 
@@ -149,6 +198,19 @@ export function TrainingCoach() {
       if (!proposalId && !data.patch) throw new Error("proposal_id or patch is required.");
       const changed = await store.applyApprovedChange({ ...data, session_id: sessionId, proposal_id: proposalId });
       return { output: changed };
+    },
+  });
+
+  useTool({
+    name: "reject_session_change",
+    description: "Record that the user rejected a proposed session change without mutating the active workout.",
+    input: v.object({ session_id: v.optional(v.string()), proposal_id: v.optional(v.string()), reason: v.optional(v.string()), idempotency_key: v.optional(v.string()) }),
+    async run({ data }) {
+      const sessionId = data.session_id || activeSessionId;
+      const proposalId = data.proposal_id || lastProposalId;
+      if (!sessionId) throw new Error("session_id is required.");
+      if (!proposalId) throw new Error("proposal_id is required.");
+      return { output: await store.rejectProposal({ ...data, session_id: sessionId, proposal_id: proposalId }) };
     },
   });
 

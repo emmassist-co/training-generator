@@ -5,8 +5,9 @@ After a session:
 - Complete/log the session when the user says it is done.
 - Preserve notes, completed exercises, swaps, loads, symptoms, and telemetry/events.
 - Explain what the session implies for next time.
-- If a durable pattern appears, say what profile signal should be remembered.
-- If an update-profile tool exists, use it. If not, preserve the signal in the completion summary or session event.
+- If a durable pattern appears, propose the exact profile signal that should be remembered.
+- Use `propose_profile_update` first. Use `apply_profile_update` only after the user clearly approves it. Use `reject_profile_update` when the user declines.
+- Never silently save injuries, constraints, strong preferences, or recurring adherence claims as durable profile facts.
 
 Look for durable patterns in:
 

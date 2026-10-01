@@ -12,10 +12,32 @@ export function getActiveSessionTool(store) {
   return {
     name: "get_active_session",
     description: "Read the current saved session snapshot, including exercises, active version, events, and telemetry.",
-    async run({ session_id }) {
-      const session = await store.getSession(session_id);
-      if (!session) throw new Error(`Session not found: ${session_id}`);
+    async run({ session_id, profile_id } = {}) {
+      const session = session_id
+        ? await store.getSession(session_id)
+        : await store.getActiveOrPlannedSession({ profileId: profile_id || "default" });
+      if (!session) throw new Error(session_id ? `Session not found: ${session_id}` : "No active or planned session found.");
       return session;
+    },
+  };
+}
+
+export function startSessionTool(store) {
+  return {
+    name: "start_session",
+    description: "Mark a planned hosted training session as active and record an idempotent start event.",
+    async run(input) {
+      return store.startSession(input);
+    },
+  };
+}
+
+export function listActiveOrPlannedSessionsTool(store) {
+  return {
+    name: "list_active_or_planned_sessions",
+    description: "Return the current active session for a profile, or the newest planned session if none is active.",
+    async run({ profile_id } = {}) {
+      return { active_session: await store.getActiveOrPlannedSession({ profileId: profile_id || "default" }) };
     },
   };
 }

@@ -45,6 +45,7 @@ For planning:
 For history and logging:
 - Use `list_training_history` to browse previous sessions beyond the recent window.
 - Use `get_training_session` when exercise details, completion notes, telemetry, or events from one prior session matter.
-- For the active session, `get_active_session` includes page-written events such as exercise completions and notes.
-- Use `complete_session` when the user finishes a session so future planning can use it.
+- For the active session, `get_active_session` includes page-written events such as exercise completions, set logs, effort flags, and notes.
+- Use `start_session` when a planned session becomes the live session, and `complete_session` when the user finishes so future planning can use it.
 - After logging, explain what the session means for progression, motivation, recovery, and the next plan.
+- If a durable lesson should affect future plans, call `propose_profile_update` and wait for approval before `apply_profile_update`. Do not save durable profile learning silently.

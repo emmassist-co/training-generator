@@ -244,12 +244,12 @@ npm run state:export-d1
 
 The local/static path remains the default, deterministic workflow. The hosted path adds a Cloudflare Worker built with Flue v2:
 
-- `src/app.ts`: Hono route map with `/api/ping`, `/api/sessions/*`, and `/agents/training/*`.
+- `src/app.ts`: Hono route map with `/`, `/chat`, `/history`, `/api/home`, `/api/sessions/*`, profile-learning APIs, and `/agents/training/*`.
 - `src/agents/training-coach.ts`: Flue v2 agent module for hosted coaching conversations.
 - `src/db/`: D1-oriented training store and exercise catalog helpers.
-- `src/tools/`: model-callable training tools for context, sessions, exercise search, proposals, approved changes, events, and completion.
+- `src/tools/`: model-callable training tools for context, sessions, exercise search, proposals, approved changes, events, completion, and approved profile learning.
 - `src/client/`: small runtime helpers for proposal preview, patch acceptance/rejection, and active session state.
-- `migrations/`: D1 SQL schema for profiles, sessions, exercises, events, telemetry, agent artifacts, catalog rows, and preference overlays.
+- `migrations/`: D1 SQL schema for profiles, sessions, exercises, events, telemetry, agent artifacts, catalog rows, preference overlays, and profile-learning proposals.
 
 The hosted agent uses Flue's built-in OpenRouter provider. For local development, put the model key in `.env` for Vite/Flue local runs or `.dev.vars` for Cloudflare local Worker runs:
 
@@ -262,6 +262,8 @@ For a deployed Worker, set the same value as a Cloudflare Worker secret only aft
 ```bash
 npx wrangler secret put OPENROUTER_API_KEY
 ```
+
+The hosted root page is the training home. It reads D1 profiles, active/planned sessions, and recent history. `/chat` remains the coach fallback, `/sessions/:id` is the live logging page, and `/history` lists prior work.
 
 Run hosted checks locally without live deploys or live OpenRouter calls:
 

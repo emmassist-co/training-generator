@@ -27,6 +27,63 @@ export function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
+
+export function deriveSessionLiveState(session = {}) {
+  const completedExerciseIds = new Set();
+  const notes = [];
+  const effortFlags = [];
+  const setLogs = [];
+  const startedEvents = [];
+  for (const event of session.events || []) {
+    const payload = event.payload || {};
+    if (event.type === "exercise_completion_updated") {
+      const exerciseId = payload.exercise_id || payload.session_exercise_id;
+      if (!exerciseId) continue;
+      if (payload.completed === false) completedExerciseIds.delete(exerciseId);
+      else completedExerciseIds.add(exerciseId);
+    }
+    if (event.type === "note_added" || event.type === "note_saved") {
+      notes.push({ id: event.id, text: payload.note || payload.notes || "", created_at: event.created_at });
+    }
+    if (event.type === "effort_flag_logged") {
+      effortFlags.push({ id: event.id, ...payload, created_at: event.created_at });
+    }
+    if (event.type === "set_logged") {
+      setLogs.push({ id: event.id, ...payload, created_at: event.created_at });
+    }
+    if (event.type === "session_started") startedEvents.push(event);
+  }
+  return {
+    completed_exercise_ids: [...completedExerciseIds],
+    notes,
+    effort_flags: effortFlags,
+    set_logs: setLogs,
+    started_at: session.started_at || startedEvents[0]?.created_at || null,
+  };
+}
+
+function mergeProfileFeedback(current = {}, patch = {}) {
+  const next = clone(current || {});
+  const feedbackPatch = patch.planning_feedback_profile || patch.feedback_profile || patch;
+  if (feedbackPatch.summary_note) {
+    next.summary_notes = [...(next.summary_notes || []), feedbackPatch.summary_note];
+  }
+  if (Array.isArray(feedbackPatch.summary_notes)) {
+    next.summary_notes = [...(next.summary_notes || []), ...feedbackPatch.summary_notes];
+  }
+  if (feedbackPatch.signal) {
+    next.signals = [...(next.signals || []), feedbackPatch.signal];
+  }
+  if (Array.isArray(feedbackPatch.signals)) {
+    next.signals = [...(next.signals || []), ...feedbackPatch.signals];
+  }
+  for (const [key, value] of Object.entries(feedbackPatch)) {
+    if (["summary_note", "summary_notes", "signal", "signals"].includes(key)) continue;
+    next[key] = value;
+  }
+  return next;
+}
+
 export function createMemoryTrainingStore(seed = {}) {
   const profiles = new Map();
   const sessions = new Map();
@@ -34,6 +91,7 @@ export function createMemoryTrainingStore(seed = {}) {
   const events = new Map();
   const telemetry = new Map();
   const artifacts = new Map();
+  const profileProposals = new Map();
 
   if (seed.profile || seed.preferences || seed.planning_feedback_profile) {
     profiles.set(DEFAULT_PROFILE_ID, {
@@ -127,6 +185,53 @@ export function createMemoryTrainingStore(seed = {}) {
         recent_sessions,
       };
     },
+
+    async getHomeSummary({ profileId = DEFAULT_PROFILE_ID, recentLimit = 5 } = {}) {
+      const profilesList = await this.listProfiles();
+      const active_session = await this.getActiveOrPlannedSession({ profileId });
+      const recent_sessions = await this.listTrainingHistory({ profileId, limit: recentLimit });
+      return {
+        profiles: profilesList,
+        selected_profile_id: profileId,
+        active_session,
+        recent_sessions,
+        today_recommendation: active_session
+          ? { kind: "resume", title: `Resume ${active_session.title}`, session_id: active_session.id, session_url: `/sessions/${active_session.id}` }
+          : { kind: "generate", title: "Generate the next session", prompt: "Generate my next training session from my profile and recent history." },
+      };
+    },
+
+    async getActiveOrPlannedSession({ profileId = DEFAULT_PROFILE_ID } = {}) {
+      const candidates = [...sessions.values()]
+        .filter((session) => session.profile_id === profileId && ["active", "planned"].includes(session.status))
+        .sort((a, b) => {
+          const statusDelta = (a.status === "active" ? 0 : 1) - (b.status === "active" ? 0 : 1);
+          if (statusDelta) return statusDelta;
+          return String(b.started_at || b.planned_at).localeCompare(String(a.started_at || a.planned_at));
+        });
+      return candidates[0] ? getSessionSnapshot(candidates[0].id) : null;
+    },
+
+    async startSession({ session_id, started_at, idempotency_key } = {}) {
+      const session = sessions.get(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      const startedAt = session.started_at || started_at || nowIso();
+      sessions.set(session_id, { ...session, status: session.status === "completed" ? session.status : "active", started_at: startedAt });
+      await this.logSessionEvent({
+        session_id,
+        type: "session_started",
+        payload: { started_at: startedAt },
+        idempotency_key: idempotency_key || `start:${session_id}`,
+      });
+      return getSessionSnapshot(session_id);
+    },
+
+    async getSessionLiveState(session_id) {
+      const session = getSessionSnapshot(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      return deriveSessionLiveState(session);
+    },
+
 
     async listTrainingHistory({ profileId = DEFAULT_PROFILE_ID, limit = 10, offset = 0, status } = {}) {
       return [...sessions.values()]
@@ -275,8 +380,37 @@ export function createMemoryTrainingStore(seed = {}) {
       return getSessionSnapshot(session_id);
     },
 
+    async proposeProfileUpdate({ profile_id = DEFAULT_PROFILE_ID, proposal_id, patch, reason, created_by = "agent" }) {
+      const proposalId = proposal_id || stableId("profile_proposal", { profile_id, patch, reason });
+      const proposal = { id: proposalId, profile_id, patch: clone(patch || {}), reason: reason || null, created_by, status: "pending", created_at: nowIso(), updated_at: nowIso() };
+      profileProposals.set(proposalId, proposal);
+      return clone(proposal);
+    },
+
+    async applyProfileUpdate({ profile_id = DEFAULT_PROFILE_ID, proposal_id, patch, approved_by = "user" } = {}) {
+      const proposal = proposal_id ? profileProposals.get(proposal_id) : null;
+      const resolvedPatch = patch || proposal?.patch;
+      if (!resolvedPatch) throw new Error("applyProfileUpdate requires a patch or a proposal_id with a saved patch.");
+      const current = profiles.get(profile_id) || { id: profile_id, profile: {}, preferences: {}, planning_feedback_profile: {}, created_at: nowIso() };
+      const row = {
+        ...current,
+        planning_feedback_profile: mergeProfileFeedback(current.planning_feedback_profile, resolvedPatch),
+        updated_at: nowIso(),
+      };
+      profiles.set(profile_id, row);
+      if (proposal) profileProposals.set(proposal_id, { ...proposal, status: "approved", approved_by, updated_at: nowIso() });
+      return clone(row);
+    },
+
+    async rejectProfileUpdate({ profile_id = DEFAULT_PROFILE_ID, proposal_id, reason } = {}) {
+      const proposal = profileProposals.get(proposal_id);
+      if (!proposal) throw new Error(`Profile update proposal not found: ${proposal_id}`);
+      profileProposals.set(proposal_id, { ...proposal, profile_id, status: "rejected", reason: reason || proposal.reason, updated_at: nowIso() });
+      return clone(profileProposals.get(proposal_id));
+    },
+
     _debug() {
-      return { profiles, sessions, exercises, events, telemetry, artifacts };
+      return { profiles, sessions, exercises, events, telemetry, artifacts, profileProposals };
     },
   };
 }
@@ -373,6 +507,50 @@ export function createD1TrainingStore(db) {
       };
     },
 
+    async getHomeSummary({ profileId = DEFAULT_PROFILE_ID, recentLimit = 5 } = {}) {
+      const profiles = await this.listProfiles();
+      const active_session = await this.getActiveOrPlannedSession({ profileId });
+      const recent_sessions = await this.listTrainingHistory({ profileId, limit: recentLimit });
+      return {
+        profiles,
+        selected_profile_id: profileId,
+        active_session,
+        recent_sessions,
+        today_recommendation: active_session
+          ? { kind: "resume", title: `Resume ${active_session.title}`, session_id: active_session.id, session_url: `/sessions/${active_session.id}` }
+          : { kind: "generate", title: "Generate the next session", prompt: "Generate my next training session from my profile and recent history." },
+      };
+    },
+
+    async getActiveOrPlannedSession({ profileId = DEFAULT_PROFILE_ID } = {}) {
+      const row = await db.prepare(`
+        SELECT id FROM sessions
+        WHERE profile_id = ? AND status IN ('active', 'planned')
+        ORDER BY CASE status WHEN 'active' THEN 0 ELSE 1 END ASC, COALESCE(started_at, planned_at) DESC
+        LIMIT 1
+      `).bind(profileId).first();
+      return row ? this.getSession(row.id) : null;
+    },
+
+    async startSession({ session_id, started_at, idempotency_key } = {}) {
+      const session = await this.getSession(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      const startedAt = session.started_at || started_at || nowIso();
+      if (session.status !== "completed") {
+        await db.prepare("UPDATE sessions SET status = 'active', started_at = COALESCE(started_at, ?) WHERE id = ?")
+          .bind(startedAt, session_id)
+          .run();
+      }
+      await this.logSessionEvent({ session_id, type: "session_started", payload: { started_at: startedAt }, idempotency_key: idempotency_key || `start:${session_id}` });
+      return this.getSession(session_id);
+    },
+
+    async getSessionLiveState(session_id) {
+      const session = await this.getSession(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      return deriveSessionLiveState(session);
+    },
+
     async listTrainingHistory({ profileId = DEFAULT_PROFILE_ID, limit = 10, offset = 0, status } = {}) {
       const cappedLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
       const safeOffset = Math.max(Number(offset) || 0, 0);
@@ -438,7 +616,7 @@ export function createD1TrainingStore(db) {
       const session = await db.prepare("SELECT * FROM sessions WHERE id = ?").bind(sessionId).first();
       if (!session) return null;
       const exercises = await db.prepare("SELECT * FROM session_exercises WHERE session_id = ? AND is_active = 1 ORDER BY position ASC").bind(sessionId).all();
-      const events = await db.prepare("SELECT * FROM session_events WHERE session_id = ? ORDER BY created_at ASC").bind(sessionId).all();
+      const events = await db.prepare("SELECT * FROM session_events WHERE session_id = ? ORDER BY created_at ASC, rowid ASC").bind(sessionId).all();
       const telemetryRow = await db.prepare("SELECT telemetry_json FROM session_telemetry WHERE session_id = ?").bind(sessionId).first();
       return {
         id: session.id,
@@ -510,12 +688,54 @@ export function createD1TrainingStore(db) {
       return this.getSession(session_id);
     },
 
+    async proposeProfileUpdate({ profile_id = DEFAULT_PROFILE_ID, proposal_id, patch, reason, created_by = "agent" }) {
+      await db.prepare("INSERT OR IGNORE INTO profiles (id, profile_json, preferences_json, feedback_profile_json) VALUES (?, '{}', '{}', '{}')")
+        .bind(profile_id)
+        .run();
+      const proposalId = proposal_id || stableId("profile_proposal", { profile_id, patch, reason });
+      await db.prepare("INSERT INTO profile_update_proposals (id, profile_id, patch_json, reason, created_by, status, updated_at) VALUES (?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET patch_json = excluded.patch_json, reason = excluded.reason, created_by = excluded.created_by, status = 'pending', updated_at = excluded.updated_at")
+        .bind(proposalId, profile_id, JSON.stringify(patch || {}), reason || null, created_by)
+        .run();
+      return { id: proposalId, profile_id, patch: clone(patch || {}), reason: reason || null, created_by, status: "pending" };
+    },
+
+    async applyProfileUpdate({ profile_id = DEFAULT_PROFILE_ID, proposal_id, patch, approved_by = "user" } = {}) {
+      const proposal = proposal_id
+        ? await db.prepare("SELECT * FROM profile_update_proposals WHERE id = ? AND profile_id = ?").bind(proposal_id, profile_id).first()
+        : null;
+      const resolvedPatch = patch || (proposal ? JSON.parse(proposal.patch_json || "{}") : null);
+      if (!resolvedPatch) throw new Error("applyProfileUpdate requires a patch or a proposal_id with a saved patch.");
+      await db.prepare("INSERT OR IGNORE INTO profiles (id, profile_json, preferences_json, feedback_profile_json) VALUES (?, '{}', '{}', '{}')")
+        .bind(profile_id)
+        .run();
+      const profile = await db.prepare("SELECT * FROM profiles WHERE id = ?").bind(profile_id).first();
+      const feedback = mergeProfileFeedback(JSON.parse(profile.feedback_profile_json || "{}"), resolvedPatch);
+      await db.prepare("UPDATE profiles SET feedback_profile_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+        .bind(JSON.stringify(feedback), profile_id)
+        .run();
+      if (proposal_id) {
+        await db.prepare("UPDATE profile_update_proposals SET status = 'approved', approved_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+          .bind(approved_by, proposal_id)
+          .run();
+      }
+      return this.getTrainingContext({ profileId: profile_id, recentLimit: 0 });
+    },
+
+    async rejectProfileUpdate({ profile_id = DEFAULT_PROFILE_ID, proposal_id, reason } = {}) {
+      const result = await db.prepare("UPDATE profile_update_proposals SET status = 'rejected', reason = COALESCE(?, reason), updated_at = CURRENT_TIMESTAMP WHERE id = ? AND profile_id = ?")
+        .bind(reason || null, proposal_id, profile_id)
+        .run();
+      if (result.meta?.changes === 0) throw new Error(`Profile update proposal not found: ${proposal_id}`);
+      return { id: proposal_id, profile_id, status: "rejected", reason: reason || null };
+    },
+
     async logSessionEvent({ id, session_id, type, version, payload = {}, idempotency_key, approved_by, reason }) {
       const eventId = id || stableId("event", { session_id, type, payload, idempotency_key });
+      const eventVersion = version || (await this.getSession(session_id))?.active_version || 1;
       await db.prepare("INSERT OR IGNORE INTO session_events (id, session_id, type, version, payload_json, idempotency_key, approved_by, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-        .bind(eventId, session_id, type, version || 1, JSON.stringify(payload), idempotency_key || null, approved_by || null, reason || null)
+        .bind(eventId, session_id, type, eventVersion, JSON.stringify(payload), idempotency_key || null, approved_by || null, reason || null)
         .run();
-      return { id: eventId, session_id, type, version: version || 1, payload, idempotency_key: idempotency_key || null };
+      return { id: eventId, session_id, type, version: eventVersion, payload, idempotency_key: idempotency_key || null };
     },
   };
 }

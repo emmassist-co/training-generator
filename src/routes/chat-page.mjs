@@ -392,7 +392,8 @@ export function renderChatPage() {
     const charCount = document.querySelector('#charCount');
 
     const conversationKey = 'trainingCoachConversation';
-    let profile = localStorage.getItem('trainingCoachProfile') || 'alexandre';
+    const urlParams = new URLSearchParams(location.search);
+    let profile = urlParams.get('profile_id') || localStorage.getItem('trainingCoachProfile') || 'default';
     let uid;
     let workTimer;
     let startedAt = 0;
