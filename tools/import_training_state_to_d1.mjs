@@ -20,16 +20,24 @@ if (import.meta.url === new URL(process.argv[1], "file:").href) {
     state = JSON.parse(await readFile(fallback, "utf8"));
   }
 
-  const plan = buildImportPlan(state);
+  const plan = buildImportPlan(state, { profileId: args["profile-id"] || process.env.TRAINING_GENERATOR_PROFILE_ID });
   await writeFile(output, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
   console.log(JSON.stringify({ ok: true, dry_run: dryRun, output, counts: Object.fromEntries(Object.entries(plan).map(([key, rows]) => [key, rows.length])) }, null, 2));
 }
 
-export function buildImportPlan(state) {
-  const profileId = "default";
+export function buildImportPlan(state, options = {}) {
+  const profileId = options.profileId || "default";
+  const profile = {
+    ...(state.profile || {}),
+    history: {
+      weight: state.weight_history || [],
+      motivation: state.motivation_history || [],
+      exercise_progression_notes: state.exercise_progression_notes || [],
+    },
+  };
   const profiles = [{
     id: profileId,
-    profile_json: state.profile || {},
+    profile_json: profile,
     preferences_json: state.preferences || {},
     feedback_profile_json: state.planning_feedback_profile || {},
   }];

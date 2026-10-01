@@ -7,6 +7,7 @@ test("import plan maps local state into D1-shaped rows", () => {
   const plan = buildImportPlan({
     profile: { name: "Alex" },
     preferences: { session_duration_min: 45 },
+    exercise_progression_notes: [{ exercise: "Cable Row", note: "Strong baseline." }],
     planning_feedback_profile: { summary_notes: ["Keep setup simple."], signals: [] },
     sessions: [
       {
@@ -18,9 +19,11 @@ test("import plan maps local state into D1-shaped rows", () => {
         exercises: [{ exercise_id: "Cable_Row", name: "Cable Row", sets: 3, reps: 10 }],
       },
     ],
-  });
+  }, { profileId: "alexandre" });
 
   assert.equal(plan.profiles.length, 1);
+  assert.equal(plan.profiles[0].id, "alexandre");
+  assert.equal(plan.profiles[0].profile_json.history.exercise_progression_notes.length, 1);
   assert.equal(plan.sessions[0].id, "tl1-session");
   assert.equal(plan.session_exercises[0].name, "Cable Row");
   assert.equal(plan.session_telemetry[0].telemetry_json.schema, "TL1");

@@ -17,6 +17,7 @@ config/*.local.json
 data/local/
 output/cloudflare-pages/
 output/training-plans/
+output/d1-backups/
 output/*.pdf
 output/*.json
 .worktrees
