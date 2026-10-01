@@ -63,6 +63,8 @@ This is deliberate. The planning agent should read one shared local file instead
 
 The hosted path uses Flue v2 on Cloudflare Workers. Flue owns the conversation stream and generated Durable Object storage, while D1 stores product data the training generator needs across sessions: profile snapshots, planned sessions, exercise rows, event history, telemetry, and accepted mid-run changes.
 
+The hosted training coach declares its model through Flue as `openrouter/moonshotai/kimi-k2.6`. Agent code does not read or pass the key; Flue resolves `OPENROUTER_API_KEY` from local env during development and from a Worker secret after deploy. Use `.env` for Vite/Flue local runs or `.dev.vars` for Cloudflare local Worker runs. For production, run `npx wrangler secret put OPENROUTER_API_KEY` only after the target account and exact write are approved.
+
 The agent contract is proposal-first. It can answer questions and suggest swaps, but a session mutation should move through a structured proposal and a user-approved apply step. D1 events preserve what changed, why it changed, and which version of the session the change affected.
 
 ## Known Limits

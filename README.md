@@ -251,7 +251,19 @@ The local/static path remains the default, deterministic workflow. The hosted pa
 - `src/client/`: small runtime helpers for proposal preview, patch acceptance/rejection, and active session state.
 - `migrations/`: D1 SQL schema for profiles, sessions, exercises, events, telemetry, agent artifacts, catalog rows, and preference overlays.
 
-Run hosted checks locally without live deploys:
+The hosted agent uses Flue's built-in OpenRouter provider. For local development, put the model key in `.env` for Vite/Flue local runs or `.dev.vars` for Cloudflare local Worker runs:
+
+```bash
+OPENROUTER_API_KEY=<your-openrouter-key>
+```
+
+For a deployed Worker, set the same value as a Cloudflare Worker secret only after choosing the target account and approving that exact write:
+
+```bash
+npx wrangler secret put OPENROUTER_API_KEY
+```
+
+Run hosted checks locally without live deploys or live OpenRouter calls:
 
 ```bash
 npm test

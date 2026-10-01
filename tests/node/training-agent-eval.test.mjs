@@ -18,11 +18,13 @@ test("Flue scaffold declares use agent module and route", async () => {
   const wrangler = await readFile(new URL("wrangler.jsonc", repoRoot), "utf8");
 
   assert.match(agent, /'use agent'/);
-  assert.match(agent, /useModel/);
+  assert.match(agent, /useModel\(\s*["']openrouter\/moonshotai\/kimi-k2\.6["']/);
+  assert.doesNotMatch(agent, /useModel\(\s*["']cloudflare\//);
+  assert.doesNotMatch(agent, /OPENROUTER_API_KEY/);
   assert.match(agent, /propose_session_change/);
   assert.match(agent, /apply_approved_change/);
   assert.match(app, /createAgentRouter\(TrainingCoach\)/);
-  assert.match(vite, /plugins:\s*\[flue\(\),\s*cloudflare\(/s);
+  assert.match(vite, /flue\(\{\s*providers:\s*\[\s*["']openrouter["']\s*\]/s);
   assert.match(wrangler, /FlueTrainingCoachAgent/);
   assert.match(wrangler, /TRAINING_DB/);
 });

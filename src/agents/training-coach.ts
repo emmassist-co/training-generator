@@ -6,7 +6,7 @@ import instructions from "./instructions/training-coach.md?raw";
 import { createD1TrainingStore } from "../db/training-store.mjs";
 
 export function TrainingCoach() {
-  useModel("cloudflare/@cf/moonshotai/kimi-k2.6", { thinkingLevel: "medium" });
+  useModel("openrouter/moonshotai/kimi-k2.6", { thinkingLevel: "medium" });
   const [activeSessionId, setActiveSessionId] = usePersistentState<string | undefined>("activeSessionId");
   const [lastProposalId, setLastProposalId] = usePersistentState<string | undefined>("lastProposalId");
 
