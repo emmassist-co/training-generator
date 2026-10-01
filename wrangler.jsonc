@@ -7,7 +7,7 @@
     {
       "binding": "TRAINING_DB",
       "database_name": "training-generator",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "ad1cce5d-aeeb-44bb-acf4-9a5053eaff96",
       "migrations_dir": "migrations"
     }
   ],
