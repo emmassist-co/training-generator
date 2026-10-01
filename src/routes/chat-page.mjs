@@ -391,17 +391,15 @@ export function renderChatPage() {
     const newConversation = document.querySelector('#newConversation');
     const charCount = document.querySelector('#charCount');
 
-    const conversationsKey = 'trainingCoachConversations';
     const conversationKey = 'trainingCoachConversation';
-    const transcriptPrefix = 'trainingCoachTranscript:';
     let profile = localStorage.getItem('trainingCoachProfile') || 'alexandre';
     let uid;
     let workTimer;
     let startedAt = 0;
     let isBusy = false;
-    let conversationId = localStorage.getItem(conversationKey) || crypto.randomUUID();
-    let client = createClient(conversationId);
-    localStorage.setItem(conversationKey, conversationId);
+    let conversations = [];
+    let conversationId = localStorage.getItem(conversationKey);
+    let client;
 
     function setProfile(next) {
       profile = next;
@@ -413,77 +411,97 @@ export function renderChatPage() {
       return createFlueClient({ url: new URL('/agents/training/' + id, location.origin).href });
     }
 
-    function readJson(key, fallback) {
-      try { return JSON.parse(localStorage.getItem(key) || ''); }
-      catch { return fallback; }
+    function apiUrl(path) {
+      const url = new URL(path, location.href);
+      url.username = '';
+      url.password = '';
+      return url.href;
     }
 
-    function writeJson(key, value) {
-      localStorage.setItem(key, JSON.stringify(value));
+    async function api(path, options = {}) {
+      const response = await fetch(apiUrl(path), {
+        ...options,
+        headers: { 'content-type': 'application/json', ...(options.headers || {}) },
+      });
+      if (!response.ok) throw new Error('Request failed: ' + response.status);
+      return response.json();
     }
 
-    function getConversations() {
-      return readJson(conversationsKey, []);
+    async function loadConversations() {
+      const data = await api('/api/conversations?profile_id=' + encodeURIComponent(profile));
+      conversations = data.conversations || [];
+      if (!conversationId || !conversations.some((item) => item.id === conversationId)) {
+        if (conversations[0]) conversationId = conversations[0].id;
+        else {
+          const created = await api('/api/conversations', { method: 'POST', body: JSON.stringify({ profile_id: profile, title: 'New conversation' }) });
+          conversations = [created];
+          conversationId = created.id;
+        }
+      }
+      const current = conversations.find((item) => item.id === conversationId);
+      uid = current?.flue_uid || undefined;
+      client = createClient(conversationId);
+      localStorage.setItem(conversationKey, conversationId);
+      renderConversationSelect();
+      await renderTranscript();
     }
 
-    function getTranscript(id = conversationId) {
-      return readJson(transcriptPrefix + id, []);
-    }
-
-    function setTranscript(messages, id = conversationId) {
-      writeJson(transcriptPrefix + id, messages.slice(-80));
-    }
-
-    function updateConversation(patch = {}) {
-      const now = new Date().toISOString();
-      const existing = getConversations().filter((item) => item.id !== conversationId);
-      const current = getConversations().find((item) => item.id === conversationId) || {};
-      const next = { id: conversationId, title: current.title || 'New conversation', created_at: current.created_at || now, updated_at: now, uid, ...patch };
-      writeJson(conversationsKey, [next, ...existing].slice(0, 20));
+    async function saveConversation(patch = {}) {
+      if (!conversationId) return;
+      const payload = {};
+      if (patch.title) payload.title = patch.title;
+      if (patch.uid) payload.flue_uid = patch.uid;
+      if (!Object.keys(payload).length) return;
+      const updated = await api('/api/conversations/' + encodeURIComponent(conversationId), { method: 'PATCH', body: JSON.stringify(payload) });
+      conversations = [updated, ...conversations.filter((item) => item.id !== updated.id)];
       renderConversationSelect();
     }
 
     function renderConversationSelect() {
-      const conversations = getConversations();
       conversationSelect.innerHTML = conversations.map((item) => '<option value="' + item.id + '">' + escapeHtml(item.title || 'New conversation') + '</option>').join('');
       conversationSelect.value = conversationId;
     }
 
-    function rememberMessage(role, text) {
-      const transcript = getTranscript();
-      transcript.push({ role, text, at: new Date().toISOString() });
-      setTranscript(transcript);
-      if (role === 'user') updateConversation({ title: text.slice(0, 58) || 'New conversation' });
-      else updateConversation();
+    async function rememberMessage(role, text) {
+      if (!conversationId) return;
+      await api('/api/conversations/' + encodeURIComponent(conversationId) + '/messages', {
+        method: 'POST',
+        body: JSON.stringify({ role, body: text }),
+      });
+      if (role === 'user') await saveConversation({ title: text.slice(0, 58) || 'New conversation' });
     }
 
-    function renderTranscript() {
+    async function renderTranscript() {
       chat.replaceChildren();
-      const transcript = getTranscript();
+      if (!conversationId) return;
+      const data = await api('/api/conversations/' + encodeURIComponent(conversationId) + '/messages');
+      const transcript = data.messages || [];
       if (!transcript.length) {
         append('assistant', 'Hi. I can create sessions, check profile history, suggest approved edits, and log completions. Current profile: **' + profile + '**.', { persist: false });
         return;
       }
-      for (const message of transcript) append(message.role, message.text, { markdown: message.role !== 'user', persist: false });
+      for (const message of transcript) append(message.role, message.body, { markdown: message.role !== 'user', persist: false });
     }
 
-    function switchConversation(id) {
-      const item = getConversations().find((conversation) => conversation.id === id);
+    async function switchConversation(id) {
       conversationId = id;
-      uid = item?.uid;
+      const item = conversations.find((conversation) => conversation.id === id);
+      uid = item?.flue_uid || undefined;
       client = createClient(conversationId);
       localStorage.setItem(conversationKey, conversationId);
-      renderTranscript();
       renderConversationSelect();
+      await renderTranscript();
     }
 
-    function startConversation() {
-      conversationId = crypto.randomUUID();
+    async function startConversation() {
+      const created = await api('/api/conversations', { method: 'POST', body: JSON.stringify({ profile_id: profile, title: 'New conversation' }) });
+      conversations = [created, ...conversations];
+      conversationId = created.id;
       uid = undefined;
       client = createClient(conversationId);
       localStorage.setItem(conversationKey, conversationId);
-      updateConversation({ title: 'New conversation', uid });
-      renderTranscript();
+      renderConversationSelect();
+      await renderTranscript();
       input.focus();
     }
 
@@ -585,15 +603,19 @@ export function renderChatPage() {
     }
 
     setProfile(profile);
-    updateConversation();
-    renderTranscript();
+    loadConversations().catch((error) => {
+      setStatus('error', 'error');
+      append('assistant', 'Error loading conversations: ' + error.message, { markdown: false });
+    });
     syncComposer();
 
-    profileBar.addEventListener('click', (event) => {
+    profileBar.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-profile]');
       if (!button || isBusy) return;
       setProfile(button.dataset.profile);
-      append('assistant', 'Profile switched to **' + profile + '**.');
+      conversationId = null;
+      localStorage.removeItem(conversationKey);
+      await loadConversations();
     });
 
     conversationSelect.addEventListener('change', () => switchConversation(conversationSelect.value));
@@ -629,7 +651,7 @@ export function renderChatPage() {
       syncComposer();
       setStatus('thinking · 0s', 'busy');
       append('user', raw, { markdown: false });
-      rememberMessage('user', raw);
+      await rememberMessage('user', raw);
       const reply = append('assistant', 'Thinking…', { thinking: true, label: 'Working', markdown: false });
       const body = ['Current selected profile_id is "' + profile + '". Use this profile unless the user clearly names another one.', '', raw].join(String.fromCharCode(10));
 
@@ -645,18 +667,18 @@ export function renderChatPage() {
       try {
         const admission = await client.send({ message: { kind: 'user', body }, uid, idempotencyKey: crypto.randomUUID() });
         uid = admission.uid;
-        updateConversation({ uid });
+        await saveConversation({ uid });
         const result = await client.read(admission, {
           onEvent(event) {
             setMessage(reply.body, eventLabel(event), false);
           },
         });
         uid = result.uid || uid;
-        updateConversation({ uid });
+        await saveConversation({ uid });
         reply.node.classList.remove('thinking');
         reply.label.textContent = 'Coach';
         setMessage(reply.body, result.text || '(no text reply)');
-        rememberMessage('assistant', result.text || '(no text reply)');
+        await rememberMessage('assistant', result.text || '(no text reply)');
         setStatus('ready', 'ready');
       } catch (error) {
         reply.node.classList.remove('thinking');

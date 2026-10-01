@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { TrainingCoach } from "./agents/training-coach";
 import { renderChatPage } from "./routes/chat-page.mjs";
 import { createSessionApi, renderSavedSessionPage } from "./routes/session-api.mjs";
+import { createConversationApi } from "./routes/conversation-api.mjs";
 
 export type Env = {
   TRAINING_DB: D1Database;
@@ -32,6 +33,7 @@ app.get("/", (c) => c.html(renderChatPage()));
 app.get("/chat", (c) => c.html(renderChatPage()));
 app.get("/api/ping", (c) => c.json({ ok: true, service: "training-generator-agent" }));
 app.get("/sessions/:sessionId", renderSavedSessionPage);
+app.route("/api/conversations", createConversationApi());
 app.route("/api/sessions", createSessionApi());
 app.route("/agents/training", createAgentRouter(TrainingCoach));
 
