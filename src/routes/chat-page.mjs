@@ -448,7 +448,7 @@ export function renderChatPage() {
       node.append(label, body);
       chat.append(node);
       chat.scrollTop = chat.scrollHeight;
-      return { node, body };
+      return { node, label, body };
     }
 
     function eventLabel(event) {
@@ -504,8 +504,7 @@ export function renderChatPage() {
       syncComposer();
       setStatus('thinking · 0s', 'busy');
       append('user', raw, { markdown: false });
-      const thinking = append('assistant', 'Thinking…', { thinking: true, label: 'Working', markdown: false });
-      const reply = append('assistant', 'Waiting for response…');
+      const reply = append('assistant', 'Thinking…', { thinking: true, label: 'Working', markdown: false });
       const body = ['Current selected profile_id is "' + profile + '". Use this profile unless the user clearly names another one.', '', raw].join(String.fromCharCode(10));
 
       startedAt = Date.now();
@@ -514,7 +513,7 @@ export function renderChatPage() {
         tick += 1;
         const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
         setStatus('thinking · ' + seconds + 's', 'busy');
-        setMessage(thinking.body, 'Thinking' + '.'.repeat((tick % 3) + 1), false);
+        setMessage(reply.body, 'Thinking' + '.'.repeat((tick % 3) + 1), false);
       }, 900);
 
       try {
@@ -522,15 +521,17 @@ export function renderChatPage() {
         uid = admission.uid;
         const result = await client.read(admission, {
           onEvent(event) {
-            setMessage(thinking.body, eventLabel(event), false);
+            setMessage(reply.body, eventLabel(event), false);
           },
         });
         uid = result.uid || uid;
+        reply.node.classList.remove('thinking');
+        reply.label.textContent = 'Coach';
         setMessage(reply.body, result.text || '(no text reply)');
-        thinking.node.remove();
         setStatus('ready', 'ready');
       } catch (error) {
-        thinking.node.remove();
+        reply.node.classList.remove('thinking');
+        reply.label.textContent = 'Coach';
         setMessage(reply.body, 'Error: ' + (error?.message || String(error)), false);
         setStatus('error', 'error');
       } finally {
