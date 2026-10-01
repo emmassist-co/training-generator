@@ -6,65 +6,358 @@ export function renderChatPage() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Training Coach</title>
   <style>
-    :root { color-scheme: dark; --bg:#0b0d10; --panel:#13171d; --muted:#8993a3; --text:#f4f6f8; --line:#252b35; --accent:#8ee7c8; --user:#1f2937; --bot:#111827; --thinking:#0f1b18; }
+    :root {
+      color-scheme: dark;
+      --bg: #07090b;
+      --bg-2: #0b1110;
+      --panel: rgba(15, 20, 22, .82);
+      --panel-strong: rgba(19, 26, 29, .94);
+      --panel-soft: rgba(255, 255, 255, .035);
+      --line: rgba(213, 255, 234, .12);
+      --line-strong: rgba(142, 231, 200, .34);
+      --text: #f5f7f6;
+      --muted: #91a09c;
+      --muted-2: #66736f;
+      --accent: #8ee7c8;
+      --accent-2: #d5fff0;
+      --danger: #ffb4a8;
+      --shadow: rgba(0, 0, 0, .42);
+      --radius-xl: 30px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+    }
+
     * { box-sizing: border-box; }
     html, body { height: 100%; overflow: hidden; }
-    body { margin: 0; font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: radial-gradient(circle at top, #14211d 0, var(--bg) 42rem); color: var(--text); }
-    main { width: 100%; height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; padding: 14px; gap: 12px; }
-    header { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 4px 2px 0; }
-    h1 { margin: 0; font-size: clamp(26px, 4vw, 44px); letter-spacing: -0.05em; line-height: .92; }
-    .sub { margin-top: 7px; color: var(--muted); max-width: 56rem; }
-    .status { color: var(--muted); font-size: 13px; text-align: right; min-width: 11rem; }
-    .chat { min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 28px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 80px rgba(0,0,0,.28); scroll-behavior: smooth; }
-    .msg { max-width: min(860px, 86%); padding: 12px 14px; border: 1px solid var(--line); border-radius: 18px; overflow-wrap: anywhere; }
-    .msg.user { margin-left: auto; background: var(--user); border-bottom-right-radius: 6px; }
-    .msg.assistant { background: var(--bot); border-bottom-left-radius: 6px; }
-    .msg.thinking { background: var(--thinking); border-style: dashed; color: var(--muted); font-size: 13px; }
-    .meta { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+    body {
+      margin: 0;
+      color: var(--text);
+      font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(142, 231, 200, .18), transparent 34rem),
+        radial-gradient(circle at 92% 12%, rgba(126, 165, 255, .10), transparent 30rem),
+        linear-gradient(180deg, var(--bg-2), var(--bg) 46%);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .28;
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.026) 1px, transparent 1px);
+      background-size: 54px 54px;
+      mask-image: linear-gradient(to bottom, #000, transparent 78%);
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100dvh;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      padding: 14px;
+    }
+
+    header,
+    form,
+    .chat {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: 0 24px 90px var(--shadow);
+      backdrop-filter: blur(22px) saturate(1.2);
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+      border-radius: var(--radius-xl);
+      padding: 14px;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 3px 0 0;
+      font-size: clamp(30px, 5vw, 58px);
+      letter-spacing: -.07em;
+      line-height: .88;
+    }
+    .sub {
+      max-width: 68rem;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .topline {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 13px;
+    }
+    .profile-bar {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .2);
+    }
+    .chip,
+    .ghost {
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      min-width: auto;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+      transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+    }
+    .chip:hover,
+    .ghost:hover { color: var(--text); background: rgba(255,255,255,.05); }
+    .chip.active {
+      color: #031b14;
+      background: linear-gradient(180deg, var(--accent-2), var(--accent));
+      box-shadow: 0 0 30px rgba(142, 231, 200, .16);
+    }
+    .ghost {
+      border-color: var(--line);
+      color: var(--accent-2);
+      background: rgba(142, 231, 200, .05);
+    }
+    .status-card {
+      min-width: 190px;
+      text-align: right;
+    }
+    .status-label {
+      display: block;
+      color: var(--muted-2);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,.04);
+      padding: 8px 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 18px var(--accent);
+    }
+    .status.busy .dot { animation: pulse 1s infinite alternate; }
+    .status.error { color: var(--danger); border-color: rgba(255,180,168,.38); }
+    .status.error .dot { background: var(--danger); box-shadow: 0 0 18px var(--danger); }
+
+    .chat {
+      min-height: 0;
+      overflow: auto;
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scroll-behavior: smooth;
+    }
+    .msg {
+      width: fit-content;
+      max-width: min(880px, 84%);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 10px 12px 12px;
+      overflow-wrap: anywhere;
+      background: rgba(255,255,255,.04);
+    }
+    .msg.user {
+      margin-left: auto;
+      color: #f9fbff;
+      border-color: rgba(180, 202, 255, .16);
+      background: linear-gradient(180deg, rgba(43, 53, 67, .92), rgba(28, 35, 46, .92));
+      border-bottom-right-radius: 8px;
+    }
+    .msg.assistant {
+      background: linear-gradient(180deg, rgba(14, 19, 22, .96), rgba(10, 14, 17, .96));
+      border-bottom-left-radius: 8px;
+    }
+    .msg.thinking {
+      color: var(--muted);
+      border-style: dashed;
+      background: rgba(142, 231, 200, .045);
+    }
+    .meta {
+      margin: 0 0 5px;
+      color: var(--muted-2);
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: .14em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+    .content { color: var(--text); }
     .content > :first-child { margin-top: 0; }
     .content > :last-child { margin-bottom: 0; }
     .content p { margin: 0 0 10px; }
-    .content ul, .content ol { margin: 0 0 10px 1.4rem; padding: 0; }
-    .content li { margin: 3px 0; }
-    .content pre { margin: 10px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; overflow: auto; background: #090c10; }
-    .content code { padding: 1px 5px; border: 1px solid var(--line); border-radius: 6px; background: #090c10; }
-    .content pre code { padding: 0; border: 0; background: transparent; }
-    .content blockquote { margin: 10px 0; padding-left: 12px; border-left: 3px solid var(--accent); color: var(--muted); }
-    form { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); }
-    textarea { width: 100%; min-height: 56px; max-height: 32vh; resize: vertical; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; padding: 8px; }
-    .actions { display: grid; align-content: stretch; gap: 7px; }
-    button { border: 0; border-radius: 16px; padding: 0 18px; min-width: 88px; background: var(--accent); color: #042018; font-weight: 750; cursor: pointer; }
-    button:disabled { opacity: .45; cursor: wait; }
-    .hint { color: var(--muted); font-size: 11px; text-align: center; white-space: nowrap; }
-    .bar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .chip { border: 1px solid var(--line); border-radius: 999px; background: #0f141a; color: var(--text); padding: 7px 10px; font-size: 13px; cursor: pointer; }
-    .chip.active { border-color: var(--accent); color: var(--accent); }
-    a { color: var(--accent); }
-    @media (max-width: 640px) { main { padding: 10px; gap: 10px; } header { display: block; } .status { text-align: left; margin-top: 10px; } .msg { max-width: 94%; } form { grid-template-columns: 1fr; } button { min-height: 46px; } .hint { text-align: right; } }
+    .content ul, .content ol { margin: 0 0 10px 1.15rem; padding: 0; }
+    .content li { margin: 2px 0; padding-left: 2px; }
+    .content pre {
+      margin: 10px 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      overflow: auto;
+      background: rgba(0, 0, 0, .34);
+    }
+    .content code {
+      padding: 1px 5px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: rgba(0, 0, 0, .32);
+      color: var(--accent-2);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .92em;
+    }
+    .content pre code { padding: 0; border: 0; background: transparent; color: inherit; }
+    .content blockquote {
+      margin: 10px 0;
+      padding-left: 12px;
+      border-left: 3px solid var(--accent);
+      color: var(--muted);
+    }
+    .content a { color: var(--accent); text-underline-offset: 3px; }
+
+    form {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: end;
+      border-radius: var(--radius-xl);
+      padding: 12px;
+    }
+    .input-wrap {
+      min-height: 64px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(0, 0, 0, .18);
+      padding: 10px 12px 8px;
+    }
+    textarea {
+      width: 100%;
+      min-height: 38px;
+      max-height: 28vh;
+      resize: none;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      padding: 0;
+    }
+    textarea::placeholder { color: var(--muted-2); }
+    .composer-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted-2);
+      font-size: 11px;
+    }
+    .actions { display: grid; gap: 8px; min-width: 118px; }
+    button.send {
+      min-height: 48px;
+      border: 0;
+      border-radius: 18px;
+      padding: 0 18px;
+      background: linear-gradient(180deg, var(--accent-2), var(--accent));
+      color: #031b14;
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 12px 34px rgba(142, 231, 200, .18);
+      transition: transform .16s ease, opacity .16s ease;
+    }
+    button.send:hover:not(:disabled) { transform: translateY(-1px); }
+    button.send:disabled { opacity: .42; cursor: not-allowed; transform: none; }
+    .hint { color: var(--muted-2); font-size: 11px; text-align: center; white-space: nowrap; }
+
+    @keyframes pulse { from { opacity: .42; transform: scale(.82); } to { opacity: 1; transform: scale(1.08); } }
+
+    @media (max-width: 720px) {
+      main { padding: 8px; gap: 8px; }
+      header { grid-template-columns: 1fr; padding: 12px; border-radius: 24px; }
+      .status-card { min-width: 0; text-align: left; }
+      .status { margin-top: 6px; }
+      .sub { font-size: 13px; }
+      .chat { padding: 10px; border-radius: 24px; }
+      .msg { max-width: 94%; }
+      form { grid-template-columns: 1fr; border-radius: 24px; }
+      .actions { grid-template-columns: 1fr auto; align-items: center; }
+      .hint { text-align: right; }
+    }
   </style>
 </head>
 <body>
   <main>
     <header>
       <div>
+        <div class="eyebrow">Hosted training agent</div>
         <h1>Training coach</h1>
-        <div class="sub">Plan, edit, and log hosted training sessions. Pick a profile or mention one in chat.</div>
-        <div class="bar" id="profiles">
-          <button type="button" class="chip active" data-profile="alexandre">alexandre</button>
-          <button type="button" class="chip" data-profile="catarina">catarina</button>
+        <div class="sub">Create sessions, swap movements, answer mid-workout questions, and log completions into the hosted training history.</div>
+        <div class="topline">
+          <div class="profile-bar" id="profiles" aria-label="Profile">
+            <button type="button" class="chip active" data-profile="alexandre">alexandre</button>
+            <button type="button" class="chip" data-profile="catarina">catarina</button>
+          </div>
+          <button type="button" class="ghost" id="focusInput">New prompt</button>
         </div>
       </div>
-      <div class="status" id="status">password protected</div>
+      <div class="status-card">
+        <span class="status-label">Connection</span>
+        <span class="status" id="status"><span class="dot"></span><span id="statusText">password protected</span></span>
+      </div>
     </header>
+
     <section class="chat" id="chat" aria-live="polite"></section>
+
     <form id="form">
-      <textarea id="input" placeholder="Ask for a session, edit the active workout, or log what you completed…"></textarea>
+      <div class="input-wrap">
+        <textarea id="input" rows="2" placeholder="Ask for a session, edit the active workout, or log what you completed…"></textarea>
+        <div class="composer-meta">
+          <span>Enter for newline</span>
+          <span id="charCount">0</span>
+        </div>
+      </div>
       <div class="actions">
-        <button id="send" type="submit">Send</button>
-        <div class="hint">⌘/Ctrl + Enter</div>
+        <button class="send" id="send" type="submit" disabled>Send</button>
+        <div class="hint">⌘/Ctrl + Enter · ⌘/Ctrl + K</div>
       </div>
     </form>
   </main>
+
   <script type="module">
     import { createFlueClient } from 'https://esm.sh/@flue/sdk@2.2.2';
 
@@ -73,10 +366,16 @@ export function renderChatPage() {
     const input = document.querySelector('#input');
     const send = document.querySelector('#send');
     const status = document.querySelector('#status');
+    const statusText = document.querySelector('#statusText');
     const profileBar = document.querySelector('#profiles');
+    const focusInput = document.querySelector('#focusInput');
+    const charCount = document.querySelector('#charCount');
+
     let profile = localStorage.getItem('trainingCoachProfile') || 'alexandre';
     let uid;
     let workTimer;
+    let startedAt = 0;
+    let isBusy = false;
     const conversationId = localStorage.getItem('trainingCoachConversation') || crypto.randomUUID();
     localStorage.setItem('trainingCoachConversation', conversationId);
     const client = createFlueClient({ url: new URL('/agents/training/' + conversationId, location.origin).href });
@@ -86,11 +385,20 @@ export function renderChatPage() {
       localStorage.setItem('trainingCoachProfile', profile);
       profileBar.querySelectorAll('.chip').forEach((chip) => chip.classList.toggle('active', chip.dataset.profile === profile));
     }
-    setProfile(profile);
-    profileBar.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-profile]');
-      if (button) setProfile(button.dataset.profile);
-    });
+
+    function setStatus(text, mode = 'ready') {
+      statusText.textContent = text;
+      status.classList.toggle('busy', mode === 'busy');
+      status.classList.toggle('error', mode === 'error');
+    }
+
+    function syncComposer() {
+      const length = input.value.length;
+      charCount.textContent = String(length);
+      send.disabled = isBusy || input.value.trim().length === 0;
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, Math.round(window.innerHeight * 0.28)) + 'px';
+    }
 
     function escapeHtml(value) {
       return String(value || '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
@@ -105,6 +413,7 @@ export function renderChatPage() {
 
     function renderMarkdown(value) {
       const text = String(value || '').trim();
+      if (!text) return '';
       const blocks = text.split(/\n{2,}/);
       return blocks.map((block) => {
         if (/^\`\`\`/.test(block)) {
@@ -118,6 +427,13 @@ export function renderChatPage() {
         if (/^> /.test(block)) return '<blockquote>' + renderInline(block.replace(/^> /gm, '')) + '</blockquote>';
         return '<p>' + block.split('\n').map(renderInline).join('<br>') + '</p>';
       }).join('');
+    }
+
+    function setMessage(node, text, markdown = true) {
+      const clean = String(text || '').trim();
+      if (markdown) node.innerHTML = renderMarkdown(clean);
+      else node.textContent = clean;
+      chat.scrollTop = chat.scrollHeight;
     }
 
     function append(role, text, options = {}) {
@@ -135,13 +451,6 @@ export function renderChatPage() {
       return { node, body };
     }
 
-    function setMessage(node, text, markdown = true) {
-      const clean = String(text || '').trim();
-      if (markdown) node.innerHTML = renderMarkdown(clean);
-      else node.textContent = clean;
-      chat.scrollTop = chat.scrollHeight;
-    }
-
     function eventLabel(event) {
       const raw = event && typeof event === 'object' ? event : {};
       const type = raw.type || raw.event || raw.kind;
@@ -152,31 +461,62 @@ export function renderChatPage() {
       return 'Thinking…';
     }
 
-    append('assistant', 'Hi. I can create sessions, check profile history, suggest approved edits, and log completions. Current profile: ' + profile + '.');
+    setProfile(profile);
+    syncComposer();
+    append('assistant', 'Hi. I can create sessions, check profile history, suggest approved edits, and log completions. Current profile: **' + profile + '**.');
+
+    profileBar.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-profile]');
+      if (!button || isBusy) return;
+      setProfile(button.dataset.profile);
+      append('assistant', 'Profile switched to **' + profile + '**.');
+    });
+
+    focusInput.addEventListener('click', () => input.focus());
+    input.addEventListener('input', syncComposer);
 
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         form.requestSubmit();
       }
+      if (event.key === 'Escape' && input.value) {
+        event.preventDefault();
+        input.value = '';
+        syncComposer();
+      }
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        input.focus();
+      }
     });
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const raw = input.value.trim();
-      if (!raw) return;
+      if (!raw || isBusy) return;
+
       input.value = '';
-      send.disabled = true;
-      status.textContent = 'thinking…';
+      isBusy = true;
+      syncComposer();
+      setStatus('thinking · 0s', 'busy');
       append('user', raw, { markdown: false });
       const thinking = append('assistant', 'Thinking…', { thinking: true, label: 'Working', markdown: false });
       const reply = append('assistant', 'Waiting for response…');
       const body = ['Current selected profile_id is "' + profile + '". Use this profile unless the user clearly names another one.', '', raw].join(String.fromCharCode(10));
+
+      startedAt = Date.now();
       let tick = 0;
       workTimer = setInterval(() => {
         tick += 1;
+        const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+        setStatus('thinking · ' + seconds + 's', 'busy');
         setMessage(thinking.body, 'Thinking' + '.'.repeat((tick % 3) + 1), false);
       }, 900);
+
       try {
         const admission = await client.send({ message: { kind: 'user', body }, uid, idempotencyKey: crypto.randomUUID() });
         uid = admission.uid;
@@ -188,13 +528,15 @@ export function renderChatPage() {
         uid = result.uid || uid;
         setMessage(reply.body, result.text || '(no text reply)');
         thinking.node.remove();
-        status.textContent = 'ready';
+        setStatus('ready', 'ready');
       } catch (error) {
+        thinking.node.remove();
         setMessage(reply.body, 'Error: ' + (error?.message || String(error)), false);
-        status.textContent = 'error';
+        setStatus('error', 'error');
       } finally {
         clearInterval(workTimer);
-        send.disabled = false;
+        isBusy = false;
+        syncComposer();
         input.focus();
       }
     });
