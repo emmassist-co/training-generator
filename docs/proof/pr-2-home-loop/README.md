@@ -15,3 +15,5 @@ Evidence:
 - `browser-errors.txt`, `chat-browser-errors.txt`: captured agent-browser page errors. Empty means no page errors were reported.
 
 D1 verification also confirmed these session events: `session_started`, `exercise_completion_updated`, `set_logged`, `effort_flag_logged`, `note_added`, `session_completed`.
+- `10-chat-prefill-dynamic-profiles.png`: deployed `/chat` after the follow-up fix; profile chips are loaded from D1 and the `prompt=` quick-action text is prefilled.
+- `chat-prefill-errors.txt`: captured page errors for the follow-up chat prefill/profile hydration check.
