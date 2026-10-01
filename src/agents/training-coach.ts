@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { useModel, usePersistentState, useTool } from "@flue/runtime";
 import * as v from "valibot";
 import instructions from "./instructions/training-coach.md?raw";
+import trainingMethod from "./instructions/training-method.md?raw";
 import { createD1ExerciseCatalog } from "../db/exercise-catalog.mjs";
 import { createD1TrainingStore } from "../db/training-store.mjs";
 import { searchExercisesTool } from "../tools/exercise-tools.mjs";
@@ -143,5 +144,5 @@ export function TrainingCoach() {
     },
   });
 
-  return instructions;
+  return `${instructions}\n\n${trainingMethod}`;
 }
