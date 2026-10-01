@@ -347,8 +347,7 @@ export function renderChatPage() {
         <div class="sub">Create sessions, swap movements, answer mid-workout questions, and log completions into the hosted training history.</div>
         <div class="topline">
           <div class="profile-bar" id="profiles" aria-label="Profile">
-            <button type="button" class="chip active" data-profile="alexandre">alexandre</button>
-            <button type="button" class="chip" data-profile="catarina">catarina</button>
+            <button type="button" class="chip active" data-profile="default">default</button>
           </div>
           <select class="conversation-select" id="conversationSelect" aria-label="Conversation"></select>
           <button type="button" class="ghost" id="newConversation">New chat</button>
@@ -406,6 +405,19 @@ export function renderChatPage() {
       profile = next;
       localStorage.setItem('trainingCoachProfile', profile);
       profileBar.querySelectorAll('.chip').forEach((chip) => chip.classList.toggle('active', chip.dataset.profile === profile));
+    }
+
+    function renderProfiles(items) {
+      const profiles = items.length ? items : [{ id: profile, name: profile }];
+      profileBar.innerHTML = profiles.map((item) => '<button type="button" class="chip ' + (item.id === profile ? 'active' : '') + '" data-profile="' + escapeHtml(item.id) + '">' + escapeHtml(item.name || item.id) + '</button>').join('');
+    }
+
+    async function loadProfiles() {
+      const data = await api('/api/home?profile_id=' + encodeURIComponent(profile));
+      const profiles = data.profiles || [];
+      if (profiles.length && !profiles.some((item) => item.id === profile)) profile = profiles[0].id;
+      renderProfiles(profiles);
+      setProfile(profile);
     }
 
     function createClient(id) {
@@ -603,12 +615,19 @@ export function renderChatPage() {
       return 'Thinking…';
     }
 
-    setProfile(profile);
-    loadConversations().catch((error) => {
+    async function initialize() {
+      const prompt = urlParams.get('prompt');
+      if (prompt) input.value = prompt;
+      setProfile(profile);
+      await loadProfiles();
+      await loadConversations();
+      syncComposer();
+    }
+
+    initialize().catch((error) => {
       setStatus('error', 'error');
       append('assistant', 'Error loading conversations: ' + error.message, { markdown: false });
     });
-    syncComposer();
 
     profileBar.addEventListener('click', async (event) => {
       const button = event.target.closest('[data-profile]');
