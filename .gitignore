@@ -1,4 +1,5 @@
 node_modules/
+dist/
 __pycache__/
 *.pyc
 .env
@@ -7,10 +8,13 @@ __pycache__/
 !.env.example
 .wrangler/
 .wrangler-output/
+.flue-vite/
+.flue-vite.wrangler.jsonc
 free-exercise-db/
 config/*.local.json
 data/local/
 output/cloudflare-pages/
 output/training-plans/
 output/*.pdf
+output/*.json
 .worktrees

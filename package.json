@@ -36,10 +36,24 @@
     "state:summarize-context": "python3 ./tools/training_state.py summarize-context",
     "state:validate-log": "python3 ./tools/training_state.py validate-tl1",
     "state:tl1-to-session": "python3 ./tools/training_state.py tl1-to-session",
-    "state:eval-plan": "python3 ./tools/training_state.py evaluate-plan"
+    "state:eval-plan": "python3 ./tools/training_state.py evaluate-plan",
+    "worker:build": "vite build",
+    "worker:deploy:dry-run": "vite build && wrangler deploy --dry-run",
+    "exercise-catalog:build": "node ./tools/build_exercise_catalog.mjs",
+    "state:import-d1:dry-run": "node ./tools/import_training_state_to_d1.mjs --dry-run",
+    "state:export-d1": "node ./tools/export_d1_training_state.mjs"
   },
   "dependencies": {
+    "@flue/runtime": "^2.2.2",
+    "@flue/sdk": "^2.2.2",
+    "hono": "^4.13.12",
     "playwright": "1.60.0",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.62.4",
+    "@flue/vite": "^2.2.2",
+    "vite": "^8.3.2",
+    "wrangler": "^4.146.0"
   }
 }
