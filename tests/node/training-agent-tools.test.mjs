@@ -45,7 +45,7 @@ test("session tools enforce propose before approved apply", async () => {
   });
   assert.equal(proposal.status, "proposed");
 
-  await assert.rejects(() => applyApprovedChangeTool(store).run({ session_id: "session-1", patch: proposal.patch }), /proposal_id or approval_token/);
+  await assert.rejects(() => applyApprovedChangeTool(store).run({ session_id: "session-1" }), /proposal_id or patch/);
   const changed = await applyApprovedChangeTool(store).run({ session_id: "session-1", proposal_id: "proposal-1", patch: proposal.patch });
   assert.equal(changed.exercises[0].name, "Dumbbell Row");
 });

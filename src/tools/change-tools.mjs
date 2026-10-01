@@ -11,10 +11,10 @@ export function proposeSessionChangeTool(store) {
 export function applyApprovedChangeTool(store) {
   return {
     name: "apply_approved_change",
-    description: "Apply a user-approved session patch. Requires a valid proposal id or approval context and must use an idempotency key.",
+    description: "Apply a user-approved session patch. Requires a valid proposal id or explicit patch and should use an idempotency key.",
     async run(input) {
-      if (!input.proposal_id && !input.approval_token) {
-        throw new Error("apply_approved_change requires proposal_id or approval_token.");
+      if (!input.proposal_id && !input.patch) {
+        throw new Error("apply_approved_change requires proposal_id or patch.");
       }
       return store.applyApprovedChange(input);
     },

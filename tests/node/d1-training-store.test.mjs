@@ -39,7 +39,6 @@ test("approved changes advance the session version and are idempotent", async ()
     session_id: "session-2",
     proposal_id: "proposal-1",
     idempotency_key: "apply:proposal-1",
-    patch: { type: "replace_exercise", session_exercise_id: "ex-1", name: "Dumbbell Row" },
   });
   const replayed = await store.applyApprovedChange({
     session_id: "session-2",
