@@ -113,6 +113,19 @@ export function renderChatPage() {
       border-radius: 999px;
       background: rgba(0, 0, 0, .2);
     }
+    .conversation-select {
+      min-height: 38px;
+      max-width: min(320px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .24);
+      color: var(--text);
+      padding: 0 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      outline: none;
+    }
     .chip,
     .ghost {
       border: 1px solid transparent;
@@ -337,7 +350,8 @@ export function renderChatPage() {
             <button type="button" class="chip active" data-profile="alexandre">alexandre</button>
             <button type="button" class="chip" data-profile="catarina">catarina</button>
           </div>
-          <button type="button" class="ghost" id="focusInput">New prompt</button>
+          <select class="conversation-select" id="conversationSelect" aria-label="Conversation"></select>
+          <button type="button" class="ghost" id="newConversation">New chat</button>
         </div>
       </div>
       <div class="status-card">
@@ -373,22 +387,104 @@ export function renderChatPage() {
     const status = document.querySelector('#status');
     const statusText = document.querySelector('#statusText');
     const profileBar = document.querySelector('#profiles');
-    const focusInput = document.querySelector('#focusInput');
+    const conversationSelect = document.querySelector('#conversationSelect');
+    const newConversation = document.querySelector('#newConversation');
     const charCount = document.querySelector('#charCount');
 
+    const conversationsKey = 'trainingCoachConversations';
+    const conversationKey = 'trainingCoachConversation';
+    const transcriptPrefix = 'trainingCoachTranscript:';
     let profile = localStorage.getItem('trainingCoachProfile') || 'alexandre';
     let uid;
     let workTimer;
     let startedAt = 0;
     let isBusy = false;
-    const conversationId = localStorage.getItem('trainingCoachConversation') || crypto.randomUUID();
-    localStorage.setItem('trainingCoachConversation', conversationId);
-    const client = createFlueClient({ url: new URL('/agents/training/' + conversationId, location.origin).href });
+    let conversationId = localStorage.getItem(conversationKey) || crypto.randomUUID();
+    let client = createClient(conversationId);
+    localStorage.setItem(conversationKey, conversationId);
 
     function setProfile(next) {
       profile = next;
       localStorage.setItem('trainingCoachProfile', profile);
       profileBar.querySelectorAll('.chip').forEach((chip) => chip.classList.toggle('active', chip.dataset.profile === profile));
+    }
+
+    function createClient(id) {
+      return createFlueClient({ url: new URL('/agents/training/' + id, location.origin).href });
+    }
+
+    function readJson(key, fallback) {
+      try { return JSON.parse(localStorage.getItem(key) || ''); }
+      catch { return fallback; }
+    }
+
+    function writeJson(key, value) {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function getConversations() {
+      return readJson(conversationsKey, []);
+    }
+
+    function getTranscript(id = conversationId) {
+      return readJson(transcriptPrefix + id, []);
+    }
+
+    function setTranscript(messages, id = conversationId) {
+      writeJson(transcriptPrefix + id, messages.slice(-80));
+    }
+
+    function updateConversation(patch = {}) {
+      const now = new Date().toISOString();
+      const existing = getConversations().filter((item) => item.id !== conversationId);
+      const current = getConversations().find((item) => item.id === conversationId) || {};
+      const next = { id: conversationId, title: current.title || 'New conversation', created_at: current.created_at || now, updated_at: now, uid, ...patch };
+      writeJson(conversationsKey, [next, ...existing].slice(0, 20));
+      renderConversationSelect();
+    }
+
+    function renderConversationSelect() {
+      const conversations = getConversations();
+      conversationSelect.innerHTML = conversations.map((item) => '<option value="' + item.id + '">' + escapeHtml(item.title || 'New conversation') + '</option>').join('');
+      conversationSelect.value = conversationId;
+    }
+
+    function rememberMessage(role, text) {
+      const transcript = getTranscript();
+      transcript.push({ role, text, at: new Date().toISOString() });
+      setTranscript(transcript);
+      if (role === 'user') updateConversation({ title: text.slice(0, 58) || 'New conversation' });
+      else updateConversation();
+    }
+
+    function renderTranscript() {
+      chat.replaceChildren();
+      const transcript = getTranscript();
+      if (!transcript.length) {
+        append('assistant', 'Hi. I can create sessions, check profile history, suggest approved edits, and log completions. Current profile: **' + profile + '**.', { persist: false });
+        return;
+      }
+      for (const message of transcript) append(message.role, message.text, { markdown: message.role !== 'user', persist: false });
+    }
+
+    function switchConversation(id) {
+      const item = getConversations().find((conversation) => conversation.id === id);
+      conversationId = id;
+      uid = item?.uid;
+      client = createClient(conversationId);
+      localStorage.setItem(conversationKey, conversationId);
+      renderTranscript();
+      renderConversationSelect();
+    }
+
+    function startConversation() {
+      conversationId = crypto.randomUUID();
+      uid = undefined;
+      client = createClient(conversationId);
+      localStorage.setItem(conversationKey, conversationId);
+      updateConversation({ title: 'New conversation', uid });
+      renderTranscript();
+      input.focus();
     }
 
     function setStatus(text, mode = 'ready') {
@@ -474,6 +570,7 @@ export function renderChatPage() {
       node.append(label, body);
       chat.append(node);
       chat.scrollTop = chat.scrollHeight;
+      if (options.persist) rememberMessage(role, text);
       return { node, label, body };
     }
 
@@ -488,8 +585,9 @@ export function renderChatPage() {
     }
 
     setProfile(profile);
+    updateConversation();
+    renderTranscript();
     syncComposer();
-    append('assistant', 'Hi. I can create sessions, check profile history, suggest approved edits, and log completions. Current profile: **' + profile + '**.');
 
     profileBar.addEventListener('click', (event) => {
       const button = event.target.closest('[data-profile]');
@@ -498,7 +596,8 @@ export function renderChatPage() {
       append('assistant', 'Profile switched to **' + profile + '**.');
     });
 
-    focusInput.addEventListener('click', () => input.focus());
+    conversationSelect.addEventListener('change', () => switchConversation(conversationSelect.value));
+    newConversation.addEventListener('click', startConversation);
     input.addEventListener('input', syncComposer);
 
     input.addEventListener('keydown', (event) => {
@@ -530,6 +629,7 @@ export function renderChatPage() {
       syncComposer();
       setStatus('thinking · 0s', 'busy');
       append('user', raw, { markdown: false });
+      rememberMessage('user', raw);
       const reply = append('assistant', 'Thinking…', { thinking: true, label: 'Working', markdown: false });
       const body = ['Current selected profile_id is "' + profile + '". Use this profile unless the user clearly names another one.', '', raw].join(String.fromCharCode(10));
 
@@ -545,15 +645,18 @@ export function renderChatPage() {
       try {
         const admission = await client.send({ message: { kind: 'user', body }, uid, idempotencyKey: crypto.randomUUID() });
         uid = admission.uid;
+        updateConversation({ uid });
         const result = await client.read(admission, {
           onEvent(event) {
             setMessage(reply.body, eventLabel(event), false);
           },
         });
         uid = result.uid || uid;
+        updateConversation({ uid });
         reply.node.classList.remove('thinking');
         reply.label.textContent = 'Coach';
         setMessage(reply.body, result.text || '(no text reply)');
+        rememberMessage('assistant', result.text || '(no text reply)');
         setStatus('ready', 'ready');
       } catch (error) {
         reply.node.classList.remove('thinking');
