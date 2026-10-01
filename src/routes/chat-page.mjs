@@ -249,6 +249,11 @@ export function renderChatPage() {
       border-left: 3px solid var(--accent);
       color: var(--muted);
     }
+    .table-wrap { max-width: 100%; overflow: auto; margin: 10px 0; border: 1px solid var(--line); border-radius: var(--radius-md); }
+    .content table { width: 100%; border-collapse: collapse; min-width: 420px; background: rgba(0,0,0,.18); }
+    .content th, .content td { padding: 9px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .content th { color: var(--accent-2); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; background: rgba(142,231,200,.06); }
+    .content tr:last-child td { border-bottom: 0; }
     .content a { color: var(--accent); text-underline-offset: 3px; }
 
     form {
@@ -411,6 +416,26 @@ export function renderChatPage() {
         .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
     }
 
+    function isTableBlock(block) {
+      const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+      return lines.length >= 2 && lines.every((line) => line.includes('|')) && /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(lines[1]);
+    }
+
+    function splitTableRow(line) {
+      return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+    }
+
+    function renderTable(block) {
+      const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+      const headers = splitTableRow(lines[0]);
+      const rows = lines.slice(2).map(splitTableRow);
+      return '<div class="table-wrap"><table><thead><tr>'
+        + headers.map((cell) => '<th>' + renderInline(cell) + '</th>').join('')
+        + '</tr></thead><tbody>'
+        + rows.map((row) => '<tr>' + headers.map((_, index) => '<td>' + renderInline(row[index] || '') + '</td>').join('') + '</tr>').join('')
+        + '</tbody></table></div>';
+    }
+
     function renderMarkdown(value) {
       const text = String(value || '').trim();
       if (!text) return '';
@@ -420,6 +445,7 @@ export function renderChatPage() {
           const code = block.replace(/^\`\`\`\w*\n?/, '').replace(/\`\`\`$/, '');
           return '<pre><code>' + escapeHtml(code.trim()) + '</code></pre>';
         }
+        if (isTableBlock(block)) return renderTable(block);
         if (/^[-*] /m.test(block)) {
           const items = block.split('\n').filter(Boolean).map((line) => '<li>' + renderInline(line.replace(/^[-*] /, '')) + '</li>').join('');
           return '<ul>' + items + '</ul>';

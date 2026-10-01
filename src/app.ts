@@ -2,7 +2,7 @@ import { createAgentRouter } from "@flue/runtime/routing";
 import { Hono } from "hono";
 import { TrainingCoach } from "./agents/training-coach";
 import { renderChatPage } from "./routes/chat-page.mjs";
-import { createSessionApi } from "./routes/session-api.mjs";
+import { createSessionApi, renderSavedSessionPage } from "./routes/session-api.mjs";
 
 export type Env = {
   TRAINING_DB: D1Database;
@@ -31,6 +31,7 @@ app.use("*", async (c, next) => {
 app.get("/", (c) => c.html(renderChatPage()));
 app.get("/chat", (c) => c.html(renderChatPage()));
 app.get("/api/ping", (c) => c.json({ ok: true, service: "training-generator-agent" }));
+app.get("/sessions/:sessionId", renderSavedSessionPage);
 app.route("/api/sessions", createSessionApi());
 app.route("/agents/training", createAgentRouter(TrainingCoach));
 

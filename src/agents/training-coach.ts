@@ -57,7 +57,7 @@ export function TrainingCoach() {
 
   useTool({
     name: "create_training_session",
-    description: "Persist a planned training session for one profile after checking context and exercise candidates. Include ordered exercises with prescriptions, alternatives, and rationale.",
+    description: "Persist a planned training session for one profile after checking context and exercise candidates. Include ordered exercises with prescriptions, alternatives, and rationale. Return the session link to the user so they can train from the live page.",
     input: v.object({
       id: v.optional(v.string()),
       profile_id: v.optional(v.string()),
@@ -69,7 +69,7 @@ export function TrainingCoach() {
     async run({ data }) {
       const session = await store.createSession({ ...data, status: "planned" });
       setActiveSessionId(session.id);
-      return { output: session };
+      return { output: { ...session, session_url: `/sessions/${session.id}` } };
     },
   });
 

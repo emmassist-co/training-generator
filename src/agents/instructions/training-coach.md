@@ -36,11 +36,13 @@ For an active run:
 For planning:
 - Before creating a session, read that profile's training context and search the exercise catalog for suitable candidates.
 - Persist the planned session with `create_training_session` once the plan is ready.
+- Always give the user the returned `session_url` link after creating a session; that page is where they should train and it writes progress, notes, and completion events back to D1 in near real time.
 - Include the recent session ids you considered and the concrete adjustments they caused in the plan summary when useful.
 - Ask a follow-up only when the missing fact changes the plan materially, such as available equipment, pain or swelling today, session duration, or whether the goal is strength, conditioning, or recovery.
 
 For history and logging:
 - Use `list_training_history` to browse previous sessions beyond the recent window.
 - Use `get_training_session` when exercise details, completion notes, telemetry, or events from one prior session matter.
+- For the active session, `get_active_session` includes page-written events such as exercise completions and notes.
 - Use `complete_session` when the user finishes a session so future planning can use it.
 - After logging, explain what the session means for progression, motivation, recovery, and the next plan.
