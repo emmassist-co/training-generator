@@ -36,6 +36,7 @@ For an active run:
 For planning:
 - Before creating a session, read that profile's training context and search the exercise catalog for suitable candidates.
 - Before saving a new planned session, call `review_training_plan` with the proposed session. Fix blockers. Fix warnings or explain why the tradeoff is acceptable.
+- For non-trivial plans, injury-history tradeoffs, or unclear progression decisions, delegate a fresh second-opinion review to the `training_plan_reviewer` subagent using the built-in `task` tool. Pass a complete briefing: profile, preferences, feedback signals, recent sessions, deterministic review output, and proposed plan. Address must-fix feedback before saving.
 - Persist the planned session with `create_training_session` once the reviewed plan is ready.
 - Always give the user the returned `session_url` link after creating a session; that page is where they should train and it writes progress, notes, and completion events back to D1 in near real time.
 - Include the recent session ids you considered and the concrete adjustments they caused in the plan summary when useful.

@@ -1,7 +1,7 @@
 'use agent';
 
 import { env } from "cloudflare:workers";
-import { useModel, usePersistentState, useTool } from "@flue/runtime";
+import { useModel, usePersistentState, useSubagent, useTool } from "@flue/runtime";
 import * as v from "valibot";
 import instructions from "./instructions/training-coach.md?raw";
 import trainingCoachSkill from "./skills/training-coach/SKILL.md?raw";
@@ -17,8 +17,29 @@ import { createD1TrainingStore } from "../db/training-store.mjs";
 import { searchExercisesTool } from "../tools/exercise-tools.mjs";
 import { reviewTrainingPlanTool } from "../tools/plan-review-tool.mjs";
 
+function TrainingPlanReviewer() {
+  return [
+    "You are an independent training-plan reviewer subagent.",
+    "You receive a complete briefing from the parent coach: profile, preferences, feedback signals, recent sessions, deterministic review output, and a proposed training session.",
+    "Fresh eyes rule: do not assume the parent plan is good. Critique it before agreeing.",
+    "Review for: safety red flags, mismatch with profile constraints, too much progression, repeated stressors from recent history, missing load/rest/rep details, unclear unilateral dosing, weak alternatives, motivation/adherence risks, and whether the session is likely to be completed.",
+    "Return concise markdown with: Verdict, Must fix, Should improve, What is good, and a revised-plan note if needed.",
+    "Do not create or save sessions. Do not call tools. Only review the briefing you were given.",
+    safetyBoundaries,
+    evidenceAnchors,
+    adaptationModel,
+    sessionDesign,
+  ].join("\n\n");
+}
+
 export function TrainingCoach() {
   useModel("openrouter/moonshotai/kimi-k2.6", { thinkingLevel: "medium" });
+  useSubagent({
+    name: "training_plan_reviewer",
+    description: "Independent second-opinion reviewer for proposed training sessions. Use before saving non-trivial new sessions, especially when injury history, recent fatigue, or progression tradeoffs matter.",
+    agent: TrainingPlanReviewer,
+    thinkingLevel: "medium",
+  });
   const [activeSessionId, setActiveSessionId] = usePersistentState<string | undefined>("activeSessionId");
   const [lastProposalId, setLastProposalId] = usePersistentState<string | undefined>("lastProposalId");
 

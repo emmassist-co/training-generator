@@ -23,8 +23,9 @@ Before planning or advice:
    - conditioning dose.
 6. Search the exercise catalog for candidates when creating or swapping exercises.
 7. Before saving a new planned session, call `review_training_plan` with the proposed plan.
-8. Fix blockers. Fix warnings or explain why the tradeoff is acceptable.
-9. Create the session or answer.
+8. For non-trivial plans, injury-history tradeoffs, or unclear progression decisions, delegate a fresh review to the `training_plan_reviewer` subagent using the built-in `task` tool. Pass the full profile/history/proposed-plan briefing.
+9. Fix blockers. Fix warnings or explain why the tradeoff is acceptable.
+10. Create the session or answer.
 
 When useful, mention which history signal changed the plan.
 
