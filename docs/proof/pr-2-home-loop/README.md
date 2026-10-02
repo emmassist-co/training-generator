@@ -17,3 +17,7 @@ Evidence:
 D1 verification also confirmed these session events: `session_started`, `exercise_completion_updated`, `set_logged`, `effort_flag_logged`, `note_added`, `session_completed`.
 - `10-chat-prefill-dynamic-profiles.png`: deployed `/chat` after the follow-up fix; profile chips are loaded from D1 and the `prompt=` quick-action text is prefilled.
 - `chat-prefill-errors.txt`: captured page errors for the follow-up chat prefill/profile hydration check.
+- `11-proposal-pending.png`: deployed live session page rendering a pending coach proposal.
+- `12-proposal-applied.png`: deployed live session page after approving that proposal; replacement exercise is shown.
+- `session-proposal-apply.webm`: browser video for pending proposal → approve → D1-backed session version update.
+- `proposal-browser-errors.txt`: captured page errors for the proposal approval check.
