@@ -33,6 +33,9 @@ export const LIVE_SESSION_CSS = String.raw`    :root { color-scheme: dark; --bg:
     .exercise-kicker { color:var(--accent); font-size:12px; font-weight:950; letter-spacing:.12em; text-transform:uppercase; }
     h2 { margin:0; font-size:clamp(46px,12vw,82px); letter-spacing:-.075em; line-height:.84; }
     .rx { color:var(--accent2); font-size:20px; font-weight:950; }
+    .prescription-note { border:1px solid rgba(255,210,138,.20); border-radius:18px; padding:11px 12px; background:rgba(255,210,138,.07); color:var(--muted); font-size:14px; }
+    .prescription-note strong { display:block; color:var(--warn); font-size:11px; text-transform:uppercase; letter-spacing:.12em; margin-bottom:4px; }
+    .prescription-note p { margin:0; }
     .why { color:var(--muted); }
     .exercise-media { position:relative; min-height:100%; margin:0; background:linear-gradient(135deg,rgba(141,255,203,.14),rgba(255,255,255,.04)); overflow:hidden; display:flex; align-items:stretch; justify-content:center; }
     .exercise-media img { width:100%; height:100%; object-fit:cover; filter:saturate(.92) contrast(1.04); }
@@ -44,7 +47,7 @@ export const LIVE_SESSION_CSS = String.raw`    :root { color-scheme: dark; --bg:
     .metric-card { display:grid; grid-template-columns:auto 1fr; grid-template-areas:"icon label" "icon value"; gap:1px 9px; align-items:center; border:1px solid var(--line); border-radius:20px; padding:11px; background:var(--panel2); }
     .metric-icon { grid-area:icon; width:32px; height:32px; border-radius:11px; display:grid; place-items:center; background:rgba(141,255,203,.12); color:var(--accent); font-weight:950; }
     .metric-label { grid-area:label; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.12em; font-weight:850; }
-    .metric-card strong { grid-area:value; font-size:17px; line-height:1.05; }
+    .metric-card strong { grid-area:value; font-size:17px; line-height:1.05; overflow-wrap:anywhere; }
     .metric-strip.empty { color:var(--muted); border:1px solid var(--line); border-radius:20px; padding:12px; }
     .set-console { border:1px solid var(--line); border-radius:26px; padding:14px; background:rgba(0,0,0,.20); display:grid; gap:12px; }
     .set-header, .timer-row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }

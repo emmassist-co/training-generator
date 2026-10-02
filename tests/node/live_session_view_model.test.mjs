@@ -14,7 +14,7 @@ test("live session view model derives replayed state and media safely", () => {
         id: "ex-1",
         exercise_id: "Cable Row/Alt",
         name: "Cable Row",
-        prescription: { sets: 3, reps: 10, load: "50 kg", rest_seconds: 75 },
+        prescription: { sets: 3, reps: 10, load: "Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively.", rest_seconds: 75 },
         images: ["Cable_Row/0.jpg"],
         alternatives: [{ name: "Dumbbell Row" }],
       },
@@ -44,7 +44,10 @@ test("live session view model derives replayed state and media safely", () => {
   assert.equal(model.proposals.length, 1);
   assert.equal(model.proposals[0].id, "p-1");
   assert.equal(model.exercises[0].prescription_text, "3 sets · 10 reps · 50 kg · 75s rest");
+  assert.deepEqual(model.exercises[0].prescription_notes, ["Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively."]);
   assert.deepEqual(model.exercises[0].metrics.map((metric) => metric.key), ["sets", "reps", "load", "rest"]);
+  assert.equal(model.exercises[0].metrics.find((metric) => metric.key === "load").value, "50 kg");
+  assert.equal(model.exercises[0].input_load, "50 kg");
   assert.equal(model.exercises[0].logged_set_count, 1);
   assert.equal(model.exercises[0].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Row/0.jpg");
   assert.equal(model.exercises[1].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hamstring%20Curl/0.jpg");

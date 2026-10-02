@@ -2,12 +2,35 @@ import { deriveSessionLiveState } from "../db/training-store.mjs";
 
 export const EXERCISE_IMAGE_BASE = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
 
+const COMPACT_VALUE_LIMIT = 22;
+
+function isCompactValue(value) {
+  return String(value ?? "").length <= COMPACT_VALUE_LIMIT;
+}
+
+export function conciseLoadValue(load) {
+  if (!load) return "";
+  const text = String(load).trim();
+  if (isCompactValue(text)) return text;
+  const weightedMatch = text.match(/\b\d+(?:\.\d+)?\s?(?:kg|lb|lbs)\b/i);
+  if (weightedMatch) return weightedMatch[0].replace(/\s+/, " ");
+  const numberMatch = text.match(/\b\d+(?:\.\d+)?\b/);
+  return numberMatch ? numberMatch[0] : "";
+}
+
+export function prescriptionNotes(prescription = {}) {
+  const notes = [];
+  if (prescription.load && !isCompactValue(prescription.load)) notes.push(String(prescription.load));
+  return notes;
+}
+
 export function prescriptionText(prescription = {}) {
   const parts = [];
+  const load = conciseLoadValue(prescription.load);
   if (prescription.sets) parts.push(`${prescription.sets} sets`);
   if (prescription.reps) parts.push(`${prescription.reps} reps`);
   if (prescription.duration) parts.push(String(prescription.duration));
-  if (prescription.load) parts.push(String(prescription.load));
+  if (load) parts.push(load);
   if (prescription.rest_seconds) parts.push(`${prescription.rest_seconds}s rest`);
   else if (prescription.rest) parts.push(String(prescription.rest));
   return parts.join(" · ") || "As prescribed";
@@ -15,9 +38,10 @@ export function prescriptionText(prescription = {}) {
 
 export function prescriptionMetricItems(prescription = {}) {
   const metrics = [];
+  const load = conciseLoadValue(prescription.load);
   if (prescription.sets) metrics.push({ key: "sets", label: "Sets", value: prescription.sets, icon: "↻" });
   if (prescription.reps) metrics.push({ key: "reps", label: "Reps", value: prescription.reps, icon: "#" });
-  if (prescription.load) metrics.push({ key: "load", label: "Load", value: prescription.load, icon: "◆" });
+  if (load) metrics.push({ key: "load", label: "Load", value: load, icon: "◆" });
   if (prescription.duration) metrics.push({ key: "time", label: "Time", value: prescription.duration, icon: "◷" });
   if (prescription.rest_seconds) metrics.push({ key: "rest", label: "Rest", value: `${prescription.rest_seconds}s`, icon: "⌁" });
   else if (prescription.rest) metrics.push({ key: "rest", label: "Rest", value: prescription.rest, icon: "⌁" });
@@ -72,6 +96,7 @@ export function buildLiveSessionViewModel(session = {}) {
         index,
         is_done: completed.has(exercise.id),
         prescription_text: prescriptionText(exercise.prescription),
+        prescription_notes: prescriptionNotes(exercise.prescription),
         metrics: prescriptionMetricItems(exercise.prescription),
         media: {
           image: firstExerciseImage(exercise),
@@ -80,9 +105,9 @@ export function buildLiveSessionViewModel(session = {}) {
         },
         logged_set_count: loggedSets.length,
         initial_reps: exercise.prescription?.reps || 0,
-        initial_load: exercise.prescription?.load || 0,
+        initial_load: conciseLoadValue(exercise.prescription?.load) || 0,
         input_reps: exercise.prescription?.reps || "",
-        input_load: exercise.prescription?.load || "",
+        input_load: conciseLoadValue(exercise.prescription?.load),
       };
     }),
     runtime: {
