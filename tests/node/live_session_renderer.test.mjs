@@ -14,7 +14,7 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
       id: "ex-1",
       exercise_id: "Cable_Row",
       name: "Row <strong>",
-      prescription: { sets: 3, reps: 10, load: "50 kg", rest_seconds: 75 },
+      prescription: { sets: 3, reps: 10, load: "Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively.", rest_seconds: 75 },
       images: ["Cable_Row/0.jpg"],
       equipment: "cable",
       alternatives: ["Dumbbell Row"],
@@ -31,6 +31,8 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
   assert.match(html, /Reps done counter/);
   assert.match(html, /Load used counter/);
   assert.match(html, /Rest timer/);
+  assert.match(html, /Plan note/);
+  assert.match(html, /value="50 kg"/);
   assert.match(html, /href="\/chat\?profile_id=alex&amp;session_id=s%3Cscript%3E"/);
   assert.match(html, /Pending coach changes/);
   assert.match(html, /Apply change/);

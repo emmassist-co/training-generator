@@ -78,6 +78,7 @@ function ExerciseCard({ exercise, index, model }: { exercise: LiveExercise; inde
           <h2>{exercise.name}</h2>
           <div class="rx">{exercise.prescription_text}</div>
           <MetricStrip metrics={exercise.metrics} />
+          <PrescriptionNotes notes={exercise.prescription_notes} />
           {exercise.rationale ? <div class="why">{exercise.rationale}</div> : null}
           <Alternatives exercise={exercise} />
           <section class="set-console" aria-label={`Log a set for ${exercise.name}`}>
@@ -105,6 +106,11 @@ function ExerciseCard({ exercise, index, model }: { exercise: LiveExercise; inde
       </div>
     </article>
   );
+}
+
+function PrescriptionNotes({ notes }: { notes?: string[] }) {
+  if (!notes?.length) return null;
+  return <div class="prescription-note"><strong>Plan note</strong>{notes.map((note) => <p>{note}</p>)}</div>;
 }
 
 function MetricStrip({ metrics }: { metrics: LiveMetric[] }) {
