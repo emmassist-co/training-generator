@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "training-generator-agent",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "TRAINING_DB",
+      "database_name": "training-generator",
+      "database_id": "ad1cce5d-aeeb-44bb-acf4-9a5053eaff96",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "migrations": [
+    {
+      "tag": "flue-class-FlueTrainingCoachAgent",
+      "new_sqlite_classes": ["FlueTrainingCoachAgent"]
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  }
+}

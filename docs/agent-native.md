@@ -25,6 +25,8 @@ This repo is an agent-native training generator, not just a pile of helper scrip
 | Test the interactive training page | `.codex/skills/test-training-session-runtime/` |
 | Parse or validate a copied `TL1` log with telemetry | `tools/training_state.py validate-tl1`, `npm run state:validate-log` |
 | Log a completed workout into local history | `.codex/skills/log-training-session/`, `tools/training_state.py log-session` |
+| Run a hosted Flue training conversation | `src/app.ts`, `src/agents/training-coach.ts`, `npm run worker:build` |
+| Import/export local state for hosted D1 use | `tools/import_training_state_to_d1.mjs`, `tools/export_d1_training_state.mjs` |
 | Summarize the current shared planning context | `tools/training_state.py summarize-context`, `npm run state:summarize-context` |
 | Read raw local state, profile, or exercise records | `tools/training_state.py read-state`, `read-profile`, `list-exercises`, `read-exercise` |
 | Read, update, or delete logged sessions | `tools/training_state.py list-sessions`, `read-session`, `update-session`, `delete-session` |
@@ -57,12 +59,21 @@ This is deliberate. The planning agent should read one shared local file instead
 - The repo works without a hidden app server or agent-only database.
 - Cloudflare ownership stays with the user.
 
+## Hosted Agent Path
+
+The hosted path uses Flue v2 on Cloudflare Workers. Flue owns the conversation stream and generated Durable Object storage, while D1 stores product data the training generator needs across sessions: profile snapshots, planned sessions, exercise rows, event history, telemetry, and accepted mid-run changes.
+
+The hosted training coach declares its model through Flue as `openrouter/moonshotai/kimi-k2.6`. Agent code does not read or pass the key; Flue resolves `OPENROUTER_API_KEY` from local env during development and from a Worker secret after deploy. Use `.env` for Vite/Flue local runs or `.dev.vars` for Cloudflare local Worker runs. For production, run `npx wrangler secret put OPENROUTER_API_KEY` only after the target account and exact write are approved.
+
+The agent contract is proposal-first. It can answer questions and suggest swaps, but a session mutation should move through a structured proposal and a user-approved apply step. D1 events preserve what changed, why it changed, and which version of the session the change affected.
+
 ## Known Limits
 
 - The tool layer is still workflow-heavy, not fully primitive-heavy.
 - The runtime HTML itself is still a large template surface, even though the CLI paths are now split into smaller primitives.
-- The phone runtime is shared back to the agent through `TL1`, not live sync.
+- The static phone runtime is shared back to the agent through `TL1`; hosted live sync is implemented through the Flue/D1 path.
 - The `TL1` payload now carries bounded timing and adherence telemetry so later planning can learn from real session behavior without adding a backend.
+- Hosted deployment still requires user-owned Cloudflare setup and explicit approval before production writes.
 
 ## Direction
 
