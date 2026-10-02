@@ -436,6 +436,11 @@ export function normalizeExercise(sessionId, rawExercise, position) {
     classification: rawExercise.classification || null,
     version: rawExercise.version || 1,
     is_active: rawExercise.is_active ?? true,
+    category: rawExercise.category || null,
+    equipment: rawExercise.equipment || null,
+    muscles: clone(rawExercise.muscles || rawExercise.primaryMuscles || rawExercise.primary_muscles || []),
+    instructions: clone(rawExercise.instructions || []),
+    images: clone(rawExercise.images || []),
   };
 }
 
@@ -615,7 +620,19 @@ export function createD1TrainingStore(db) {
     async getSession(sessionId) {
       const session = await db.prepare("SELECT * FROM sessions WHERE id = ?").bind(sessionId).first();
       if (!session) return null;
-      const exercises = await db.prepare("SELECT * FROM session_exercises WHERE session_id = ? AND is_active = 1 ORDER BY position ASC").bind(sessionId).all();
+      const exercises = await db.prepare(`
+        SELECT
+          se.*,
+          ec.category AS catalog_category,
+          ec.equipment AS catalog_equipment,
+          ec.muscles_json AS catalog_muscles_json,
+          ec.instructions_json AS catalog_instructions_json,
+          ec.images_json AS catalog_images_json
+        FROM session_exercises se
+        LEFT JOIN exercise_catalog ec ON ec.id = se.exercise_id
+        WHERE se.session_id = ? AND se.is_active = 1
+        ORDER BY se.position ASC
+      `).bind(sessionId).all();
       const events = await db.prepare("SELECT * FROM session_events WHERE session_id = ? ORDER BY created_at ASC, rowid ASC").bind(sessionId).all();
       const telemetryRow = await db.prepare("SELECT telemetry_json FROM session_telemetry WHERE session_id = ?").bind(sessionId).first();
       return {
@@ -641,6 +658,11 @@ export function createD1TrainingStore(db) {
           rationale: exercise.rationale,
           classification: exercise.classification,
           version: exercise.version,
+          category: exercise.catalog_category || null,
+          equipment: exercise.catalog_equipment || null,
+          muscles: JSON.parse(exercise.catalog_muscles_json || "[]"),
+          instructions: JSON.parse(exercise.catalog_instructions_json || "[]"),
+          images: JSON.parse(exercise.catalog_images_json || "[]"),
         })),
         events: (events.results || []).map((event) => ({ ...event, payload: JSON.parse(event.payload_json || "{}") })),
         telemetry: telemetryRow ? JSON.parse(telemetryRow.telemetry_json) : null,

@@ -58,14 +58,39 @@ test("hosted pages render home history, D1 replay, and pending proposals", () =>
     title: "Replay",
     status: "active",
     active_version: 1,
-    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 3 } }],
+    exercises: [{
+      id: "ex-1",
+      exercise_id: "Cable_Row",
+      name: "Row",
+      prescription: { sets: 3, reps: 10, load: "50 kg", rest_seconds: 75 },
+      images: ["Cable_Row/0.jpg"],
+      equipment: "cable",
+    }],
     events: [
       { id: "e1", type: "exercise_completion_updated", payload: { session_exercise_id: "ex-1", completed: true }, created_at: "2026-01-01" },
       { id: "p1", type: "proposal_created", reason: "Machine busy", payload: { patch: { type: "replace_exercise", session_exercise_id: "ex-1", name: "Dumbbell Row" } }, created_at: "2026-01-01" },
     ],
   });
-  assert.match(html, /checked/);
+  assert.match(html, /exercise photo/);
+  assert.match(html, /metric-card/);
+  assert.match(html, /Log this set/);
+  assert.match(html, /Reps done counter/);
+  assert.match(html, /Load used counter/);
+  assert.match(html, /Rest timer/);
+  assert.match(html, /Done \+ next/);
   assert.match(html, /Ask coach/);
   assert.match(html, /Pending coach changes/);
   assert.match(html, /Apply change/);
+
+  const completedHtml = renderSessionPage({
+    id: "s2",
+    profile_id: "alex",
+    title: "Completed",
+    status: "completed",
+    active_version: 1,
+    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 3, reps: 10 } }],
+    events: [],
+  });
+  assert.match(completedHtml, /id="bottomAddSet" disabled/);
+  assert.match(completedHtml, /id="bottomDone" disabled/);
 });
