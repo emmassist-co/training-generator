@@ -26,6 +26,13 @@ export function renderSessionPage(session) {
   const completed = new Set(liveState.completed_exercise_ids || []);
   const latestNote = liveState.notes?.at(-1)?.text || "";
   const isCompleted = session.status === "completed";
+  const resolvedProposalIds = new Set((session.events || [])
+    .filter((event) => event.type === "proposal_accepted" || event.type === "proposal_rejected")
+    .map((event) => event.payload?.proposal_id)
+    .filter(Boolean));
+  const pendingProposals = (session.events || [])
+    .filter((event) => event.type === "proposal_created" && !resolvedProposalIds.has(event.id))
+    .map((event) => ({ id: event.id, reason: event.reason, patch: event.payload?.patch || null }));
   return String.raw`<!doctype html>
 <html lang="en">
 <head>
@@ -58,6 +65,9 @@ export function renderSessionPage(session) {
     textarea, input.set-input { width:100%; border:1px solid var(--line); border-radius:18px; background:rgba(0,0,0,.22); color:var(--text); font:inherit; padding:12px; outline:none; }
     textarea { min-height:110px; resize:vertical; }
     .set-row { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; margin-top:12px; }
+    .proposal { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:18px; background:rgba(142,231,200,.05); }
+    .proposal p { margin:0 0 8px; color:var(--accent2); font-weight:800; }
+    .proposal pre { white-space:pre-wrap; overflow:auto; color:var(--muted); font-size:12px; }
     .actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-top:10px; color:var(--muted2); font-size:12px; }
     .button-row { display:flex; flex-wrap:wrap; gap:8px; }
     button, .coach-link { border:0; border-radius:16px; min-height:44px; padding:0 16px; background:linear-gradient(180deg,var(--accent2),var(--accent)); color:#031b14; font:inherit; font-weight:900; cursor:pointer; display:inline-flex; align-items:center; text-decoration:none; }
@@ -95,6 +105,8 @@ export function renderSessionPage(session) {
         </div>
       </article>`).join("")}
     </section>
+
+    ${pendingProposals.length ? `<section class="panel" id="proposalPanel"><strong>Pending coach changes</strong>${pendingProposals.map((proposal) => `<article class="proposal" data-proposal-id="${escapeHtml(proposal.id)}"><p>${escapeHtml(proposal.reason || "Review this proposed session change.")}</p><pre>${escapeHtml(JSON.stringify(proposal.patch, null, 2))}</pre>${isCompleted ? "" : `<div class="button-row"><button type="button" data-apply-proposal>Apply change</button><button type="button" class="secondary" data-reject-proposal>Reject</button></div>`}</article>`).join("")}</section>` : ""}
 
     <section class="panel">
       <label for="notes"><strong>Session notes</strong></label>
@@ -166,6 +178,19 @@ export function renderSessionPage(session) {
     saveNote?.addEventListener('click', () => saveNotes().catch((error) => setToast(error.message)));
     for (const button of document.querySelectorAll('[data-effort]')) {
       button.addEventListener('click', () => postEvent('effort_flag_logged', { kind: button.dataset.effort }).catch((error) => setToast(error.message)));
+    }
+    for (const proposal of document.querySelectorAll('[data-proposal-id]')) {
+      const proposalId = proposal.dataset.proposalId;
+      proposal.querySelector('[data-apply-proposal]')?.addEventListener('click', async () => {
+        setToast('Applying proposal…');
+        try { await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/proposals/' + encodeURIComponent(proposalId) + '/apply', { approved_by: 'user' }); location.reload(); }
+        catch (error) { setToast(error.message); }
+      });
+      proposal.querySelector('[data-reject-proposal]')?.addEventListener('click', async () => {
+        setToast('Rejecting proposal…');
+        try { await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/proposals/' + encodeURIComponent(proposalId) + '/reject', { reason: 'Rejected from live session page' }); proposal.remove(); setToast('Proposal rejected'); }
+        catch (error) { setToast(error.message); }
+      });
     }
     complete?.addEventListener('click', async () => {
       setToast('Completing…');

@@ -45,6 +45,29 @@ export function createSessionApi() {
     return c.json(session);
   });
 
+  app.post("/:sessionId/proposals/:proposalId/apply", async (c) => {
+    const store = createD1TrainingStore(c.env.TRAINING_DB);
+    const body = await safeJson(c);
+    const session = await store.applyApprovedChange?.({
+      ...body,
+      session_id: c.req.param("sessionId"),
+      proposal_id: c.req.param("proposalId"),
+      approved_by: body.approved_by || "user",
+    });
+    return c.json(session);
+  });
+
+  app.post("/:sessionId/proposals/:proposalId/reject", async (c) => {
+    const store = createD1TrainingStore(c.env.TRAINING_DB);
+    const body = await safeJson(c);
+    const session = await store.rejectProposal?.({
+      ...body,
+      session_id: c.req.param("sessionId"),
+      proposal_id: c.req.param("proposalId"),
+    });
+    return c.json(session);
+  });
+
   app.post("/:sessionId/events", async (c) => {
     const store = createD1TrainingStore(c.env.TRAINING_DB);
     const body = await c.req.json();

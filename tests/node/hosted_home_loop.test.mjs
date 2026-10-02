@@ -49,7 +49,7 @@ test("profile learning proposal changes context only after apply", async () => {
   assert.deepEqual(context.planning_feedback_profile.summary_notes, ["Prefers shorter finishers."]);
 });
 
-test("hosted pages render home history and D1-replayed session state", () => {
+test("hosted pages render home history, D1 replay, and pending proposals", () => {
   assert.match(renderHomePage(), /Training home/);
   assert.match(renderHistoryPage(), /History/);
   const html = renderSessionPage({
@@ -59,8 +59,13 @@ test("hosted pages render home history and D1-replayed session state", () => {
     status: "active",
     active_version: 1,
     exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 3 } }],
-    events: [{ id: "e1", type: "exercise_completion_updated", payload: { session_exercise_id: "ex-1", completed: true }, created_at: "2026-01-01" }],
+    events: [
+      { id: "e1", type: "exercise_completion_updated", payload: { session_exercise_id: "ex-1", completed: true }, created_at: "2026-01-01" },
+      { id: "p1", type: "proposal_created", reason: "Machine busy", payload: { patch: { type: "replace_exercise", session_exercise_id: "ex-1", name: "Dumbbell Row" } }, created_at: "2026-01-01" },
+    ],
   });
   assert.match(html, /checked/);
   assert.match(html, /Ask coach/);
+  assert.match(html, /Pending coach changes/);
+  assert.match(html, /Apply change/);
 });
