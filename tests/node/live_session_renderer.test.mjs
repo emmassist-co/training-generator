@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { renderSessionPage } from "../../src/routes/session-page.mjs";
 
+function occurrenceCount(text, token) {
+  return text.split(token).length - 1;
+}
+
 test("live session renderer uses TSX landmarks and one serialized runtime payload", () => {
   const html = renderSessionPage({
     id: "s<script>",
@@ -101,6 +105,53 @@ test("live session renderer keeps current-set controls before optional media and
   assert.match(html, /data-error/);
   assert.match(html, /rest-row/);
   assert.match(html, /timer-active/);
+});
+
+test("live session renderer keeps unique and repeated behavior hooks scoped", () => {
+  const html = renderSessionPage({
+    id: "hook-baseline",
+    profile_id: "alex",
+    title: "Hook baseline",
+    status: "active",
+    active_version: 4,
+    exercises: [
+      { id: "ex-a", name: "Cable Row", prescription: { sets: 3, reps: 10 } },
+      { id: "ex-b", name: "Split Squat", prescription: { sets: 2, reps: 8 } },
+    ],
+    events: [
+      { id: "proposal-a", type: "proposal_created", reason: "Station busy", payload: { patch: { type: "replace_exercise", session_exercise_id: "ex-a", name: "Dumbbell Row" } } },
+      { id: "proposal-b", type: "proposal_created", reason: "Load unavailable", payload: { patch: { type: "update_prescription", session_exercise_id: "ex-b", prescription: { reps: 10 } } } },
+    ],
+  });
+  const markup = html.slice(0, html.indexOf('<script type="module">'));
+
+  for (const id of [
+    "exerciseStage", "statusPill", "completedCount", "elapsedPill", "progressLabel",
+    "progressPercent", "progressFill", "proposalPanel", "notes", "toast", "saveNote",
+    "complete", "prevExercise", "bottomExerciseName", "bottomStatus", "nextExercise", "bottomDone",
+  ]) {
+    assert.equal(occurrenceCount(markup, `id="${id}"`), 1, `expected one #${id}`);
+  }
+
+  for (const hook of [
+    "data-exercise-id", "data-current-set-label", "data-set-count", "data-reps", "data-load",
+    "data-exercise-note", "data-error", "data-log-set", "data-done", "data-rest-row", "data-timer",
+  ]) {
+    assert.equal(occurrenceCount(markup, hook), 2, `expected ${hook} once per exercise`);
+  }
+  assert.equal(occurrenceCount(markup, "data-proposal-id"), 2);
+  assert.equal(occurrenceCount(markup, "data-apply-proposal"), 2);
+  assert.equal(occurrenceCount(markup, "data-reject-proposal"), 2);
+  assert.equal(occurrenceCount(markup, "data-effort="), 3);
+
+  const exerciseA = markup.match(/<article[^>]*data-exercise-id="ex-a"[\s\S]*?<\/article>/)?.[0] || "";
+  const exerciseB = markup.match(/<article[^>]*data-exercise-id="ex-b"[\s\S]*?<\/article>/)?.[0] || "";
+  assert.match(exerciseA, /data-action-key="set:ex-a"/);
+  assert.match(exerciseA, /Log a set for Cable Row/);
+  assert.doesNotMatch(exerciseA, /set:ex-b/);
+  assert.match(exerciseB, /data-action-key="set:ex-b"/);
+  assert.match(exerciseB, /Log a set for Split Squat/);
+  assert.doesNotMatch(exerciseB, /set:ex-a/);
 });
 
 test("live session renderer has an empty workout state", () => {

@@ -29,7 +29,7 @@ test("live session view model derives replayed state and media safely", () => {
       { id: "done-1", type: "exercise_completion_updated", payload: { session_exercise_id: "ex-1", completed: true }, created_at: "2026-01-01T00:00:00Z" },
       { id: "note-1", type: "note_added", payload: { note: "First note" }, created_at: "2026-01-01T00:01:00Z" },
       { id: "note-2", type: "note_added", payload: { note: "Latest note" }, created_at: "2026-01-01T00:02:00Z" },
-      { id: "set-1", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "10", load: "50" }, created_at: "2026-01-01T00:03:00Z" },
+      { id: "set-1", type: "set_logged", payload: { session_exercise_id: "ex-1", set_number: 1, reps: "10", load: "50", note: "Keep ribs down" }, created_at: "2026-01-01T00:03:00Z" },
       { id: "p-1", type: "proposal_created", reason: "Machine busy", payload: { patch: { type: "replace_exercise", session_exercise_id: "ex-1", name: "Dumbbell Row" } }, created_at: "2026-01-01T00:04:00Z" },
       { id: "p-2", type: "proposal_created", payload: { patch: { type: "update_prescription", session_exercise_id: "ex-2", prescription: { reps: 12 } } }, created_at: "2026-01-01T00:05:00Z" },
       { id: "accept-2", type: "proposal_accepted", payload: { proposal_id: "p-2" }, created_at: "2026-01-01T00:06:00Z" },
@@ -56,7 +56,16 @@ test("live session view model derives replayed state and media safely", () => {
   assert.equal(model.exercises[0].current_set.planned_set_total, 3);
   assert.equal(model.exercises[0].current_set.target_reps, 10);
   assert.equal(model.exercises[0].current_set.target_load, "50 kg");
-  assert.deepEqual(model.exercises[0].saved_sets, [{ reps: "10", load: "50", note: "", label: "Set 1" }]);
+  assert.deepEqual(model.exercises[0].saved_sets, [{ reps: "10", load: "50", note: "Keep ribs down", label: "Set 1" }]);
+  assert.deepEqual(model.runtime.session.set_logs, [{
+    id: "set-1",
+    session_exercise_id: "ex-1",
+    set_number: 1,
+    reps: "10",
+    load: "50",
+    note: "Keep ribs down",
+    created_at: "2026-01-01T00:03:00Z",
+  }]);
   assert.equal(model.exercises[0].plan_note.compact, "Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively.");
   assert.equal(model.exercises[0].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Row/0.jpg");
   assert.equal(model.exercises[1].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hamstring%20Curl/0.jpg");

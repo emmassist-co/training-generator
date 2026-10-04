@@ -1,55 +1,59 @@
-# Training Coach Design
+# Training Generator Design
 
-## Design read
+## Durable product principles
 
-A hosted training agent for daily use: fast, calm, and direct. It should feel like a focused command room, not a marketing page.
+These rules apply across the product. Surface-specific briefs may add detail, but they should not weaken them.
 
-## Product feel
+- **Fast, calm, and direct:** show the next useful action without decorative noise.
+- **Phone-first, not phone-only:** make touch use the baseline and give wider screens a deliberate layout.
+- **One clear focus:** the main task must outrank navigation, status, and supporting detail.
+- **State is explicit:** saving, success, failure, empty, disabled, and read-only states must be clear in words or form, not color alone.
+- **Structured training data stays intact:** visual work must not blur prescribed values, actual results, notes, effort, proposals, or completion into display-only text.
+- **Accessible by default:** support keyboard use, visible focus, readable contrast, reduced motion, zoom, safe areas, and at least 44 by 44 CSS-pixel touch targets.
+- **Restraint over generic polish:** avoid decorative gradients, glow, repeated pills, and nested cards unless each use has a clear job.
 
-- **Full-screen app shell**: header and composer stay fixed; only the message stream scrolls.
-- **Dark training room**: near-black surfaces, quiet grid glow, green action accent.
-- **Coach-first chat**: readable bubbles, clear state, no decorative clutter.
-- **Keyboard-native**: `Cmd/Ctrl + Enter` sends, `Cmd/Ctrl + K` focuses the prompt, `Esc` clears the prompt.
-- **Phone-first**: thumb-safe controls, no page scroll fights, composer always visible.
+## Chat-specific guidance
 
-## Visual language
+This section describes the current coach chat. It is not a shared visual system for every product surface.
 
-- Background: deep charcoal with soft green radial light.
-- Surfaces: glassy black panels with restrained borders, not heavy cards.
-- Accent: mint green for selected profile, send state, and live status only.
-- Type: system sans for speed and native feel; compact labels in uppercase.
-- Radius: large shell radius, medium message radius, pill controls.
+### Structure
 
-## Layout rules
+- Use a full-screen shell: the header and composer stay fixed while the message stream owns scrolling.
+- Keep the header compact and the composer visible.
+- Align user messages right on a stronger surface and coach messages left on a quieter surface.
+- Keep message labels on one compact line above their content.
+- Render coach Markdown rather than showing raw syntax.
 
-1. `html` and `body` do not scroll.
-2. `main` fills `100dvh`.
-3. Header is compact and never consumes workout space.
-4. Message stream owns overflow and scroll position.
-5. Composer stays visible at the bottom.
-6. Mobile keeps the same structure with tighter padding.
+### Interaction
 
-## Message rules
+- `Cmd/Ctrl + Enter` submits.
+- `Cmd/Ctrl + K` focuses the prompt.
+- `Esc` clears a prompt that has text.
+- Disable send while the prompt is empty or a request is pending.
+- Show request progress and timing in the transcript; show errors there rather than in browser alerts.
 
-- User messages align right with a stronger surface.
-- Coach messages align left with a softer surface.
-- Message labels stay on one compact line above content.
-- Markdown renders for coach replies: bold, inline code, links, lists, quotes, and fenced code.
-- Loading shows a temporary working bubble plus status timing.
+### Current chat treatment
 
-## Interaction rules
+The chat currently uses a dark training-room treatment, restrained borders, system sans type, and a green action accent. Those are chat implementation choices, not an approved live-session brand direction.
 
-- `Cmd/Ctrl + Enter`: submit.
-- `Cmd/Ctrl + K`: focus prompt.
-- `Esc`: clear prompt when it has text.
-- Send button disables while empty or while waiting.
-- Status shows `thinking · Ns` during long requests.
-- Errors render in the transcript, not as browser alerts.
+## Live-session-specific guidance
 
-## Anti-goals
+The live session has a separate, image-first design gate. Its visual direction is **not approved yet**, and production session UI must not change until the required mobile and desktop references receive approval.
 
-- No generic purple AI gradients.
-- No full-page scroll.
-- No hidden loading state.
-- No stacked blank lines between label and message.
-- No markdown shown as raw syntax when it should render.
+The baseline brief in [`docs/design/live-session/visual-brief.md`](docs/design/live-session/visual-brief.md) defines:
+
+- the observable Flue attributes that concepts must express;
+- gym-use hierarchy and state priorities;
+- patterns that reviewers should reject;
+- stable renderer, runtime, request, replay, and read-only contracts;
+- accessibility limits that the approved direction must meet.
+
+The current dark, mint, rounded-card session is evidence to review, not the target system. Later work may reuse shared product principles, but it must derive live-session type, color, spacing, surfaces, imagery, icons, and motion from approved reference images rather than from this file.
+
+## Shared anti-goals
+
+- No generic purple AI gradients or arbitrary glow.
+- No hidden loading, save, error, or read-only state.
+- No full-page scroll fight inside an app shell.
+- No visual reorder that changes the meaning or scope of a training write.
+- No claim that a draft concept or current production treatment is approved brand direction.
