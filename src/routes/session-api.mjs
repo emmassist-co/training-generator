@@ -41,49 +41,76 @@ export function createSessionApi() {
   app.post("/:sessionId/start", async (c) => {
     const store = createD1TrainingStore(c.env.TRAINING_DB);
     const body = await safeJson(c);
-    const session = await store.startSession?.({ ...body, session_id: c.req.param("sessionId") });
-    return c.json(session);
+    try {
+      const session = await store.startSession?.({ ...body, session_id: c.req.param("sessionId") });
+      return c.json(session);
+    } catch (error) {
+      return handleSessionWriteError(c, error);
+    }
   });
 
   app.post("/:sessionId/proposals/:proposalId/apply", async (c) => {
     const store = createD1TrainingStore(c.env.TRAINING_DB);
     const body = await safeJson(c);
-    const session = await store.applyApprovedChange?.({
-      ...body,
-      session_id: c.req.param("sessionId"),
-      proposal_id: c.req.param("proposalId"),
-      approved_by: body.approved_by || "user",
-    });
-    return c.json(session);
+    try {
+      const session = await store.applyApprovedChange?.({
+        ...body,
+        session_id: c.req.param("sessionId"),
+        proposal_id: c.req.param("proposalId"),
+        approved_by: body.approved_by || "user",
+      });
+      return c.json(session);
+    } catch (error) {
+      return handleSessionWriteError(c, error);
+    }
   });
 
   app.post("/:sessionId/proposals/:proposalId/reject", async (c) => {
     const store = createD1TrainingStore(c.env.TRAINING_DB);
     const body = await safeJson(c);
-    const session = await store.rejectProposal?.({
-      ...body,
-      session_id: c.req.param("sessionId"),
-      proposal_id: c.req.param("proposalId"),
-    });
-    return c.json(session);
+    try {
+      const session = await store.rejectProposal?.({
+        ...body,
+        session_id: c.req.param("sessionId"),
+        proposal_id: c.req.param("proposalId"),
+      });
+      return c.json(session);
+    } catch (error) {
+      return handleSessionWriteError(c, error);
+    }
   });
 
   app.post("/:sessionId/events", async (c) => {
     const store = createD1TrainingStore(c.env.TRAINING_DB);
     const body = await c.req.json();
     if (!body?.type || typeof body.type !== "string") return c.json({ error: "invalid_event", message: "type is required" }, 400);
-    const event = await store.logSessionEvent?.({ ...body, session_id: c.req.param("sessionId") });
-    return c.json(event, 201);
+    try {
+      const event = await store.logSessionEvent?.({ ...body, session_id: c.req.param("sessionId") });
+      return c.json(event, 201);
+    } catch (error) {
+      return handleSessionWriteError(c, error);
+    }
   });
 
   app.post("/:sessionId/complete", async (c) => {
     const store = createD1TrainingStore(c.env.TRAINING_DB);
     const body = await c.req.json();
-    const session = await store.completeSession?.({ ...body, session_id: c.req.param("sessionId") });
-    return c.json(session);
+    try {
+      const session = await store.completeSession?.({ ...body, session_id: c.req.param("sessionId") });
+      return c.json(session);
+    } catch (error) {
+      return handleSessionWriteError(c, error);
+    }
   });
 
   return app;
+}
+
+function handleSessionWriteError(c, error) {
+  if (error?.name === "ReadOnlySessionError" || error?.code === "session_read_only") {
+    return c.json({ error: "session_read_only", message: error.message }, 409);
+  }
+  throw error;
 }
 
 async function safeJson(c) {

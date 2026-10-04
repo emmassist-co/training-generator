@@ -47,8 +47,17 @@ test("live session view model derives replayed state and media safely", () => {
   assert.deepEqual(model.exercises[0].prescription_notes, ["Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively."]);
   assert.deepEqual(model.exercises[0].metrics.map((metric) => metric.key), ["sets", "reps", "load", "rest"]);
   assert.equal(model.exercises[0].metrics.find((metric) => metric.key === "load").value, "50 kg");
-  assert.equal(model.exercises[0].input_load, "50 kg");
+  assert.equal(model.exercises[0].input_load, "50");
   assert.equal(model.exercises[0].logged_set_count, 1);
+  assert.equal(model.exercises[0].current_set.number, 2);
+  assert.equal(model.exercises[0].current_set.total, 3);
+  assert.equal(model.exercises[0].current_set.label, "Set 2 of 3");
+  assert.equal(model.exercises[0].current_set.primary_action_label, "Log set");
+  assert.equal(model.exercises[0].current_set.planned_set_total, 3);
+  assert.equal(model.exercises[0].current_set.target_reps, 10);
+  assert.equal(model.exercises[0].current_set.target_load, "50 kg");
+  assert.deepEqual(model.exercises[0].saved_sets, [{ reps: "10", load: "50", note: "", label: "Set 1" }]);
+  assert.equal(model.exercises[0].plan_note.compact, "Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively.");
   assert.equal(model.exercises[0].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Row/0.jpg");
   assert.equal(model.exercises[1].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hamstring%20Curl/0.jpg");
 });
@@ -58,4 +67,54 @@ test("live session view model marks completed sessions read-only", () => {
   assert.equal(model.session.is_completed, true);
   assert.equal(model.session.profile_id, "default");
   assert.equal(model.progress.exercise_count, 0);
+  assert.equal(model.progress.has_exercises, false);
+});
+
+test("live session view model treats planned set count as fixed", () => {
+  const model = buildLiveSessionViewModel({
+    id: "s3",
+    status: "active",
+    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 2, reps: 8 } }],
+    events: [
+      { id: "set-1", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "8" } },
+      { id: "set-2", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "8" } },
+    ],
+  });
+
+  assert.equal(model.exercises[0].current_set.total, 2);
+  assert.equal(model.exercises[0].current_set.is_complete, true);
+  assert.equal(model.exercises[0].current_set.label, "All 2 sets logged");
+  assert.equal(model.exercises[0].current_set.primary_action_label, "Add extra set");
+});
+
+test("live session view model preserves fixed planned total after extra sets", () => {
+  const model = buildLiveSessionViewModel({
+    id: "s4",
+    status: "active",
+    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 3, reps: 8 } }],
+    events: [
+      { id: "set-1", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "8" } },
+      { id: "set-2", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "8" } },
+      { id: "set-3", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "8" } },
+      { id: "set-4", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "8" } },
+    ],
+  });
+
+  assert.equal(model.exercises[0].current_set.total, 3);
+  assert.equal(model.exercises[0].current_set.planned_set_total, 3);
+  assert.equal(model.exercises[0].current_set.label, "All 3 sets logged");
+  assert.equal(model.exercises[0].current_set.primary_action_label, "Add extra set");
+});
+
+test("live session view model falls back to unbounded sets without prescribed count", () => {
+  const model = buildLiveSessionViewModel({
+    id: "s5",
+    status: "active",
+    exercises: [{ id: "ex-1", name: "Carry", prescription: { reps: 30 } }],
+    events: [{ id: "set-1", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "30" } }],
+  });
+
+  assert.equal(model.exercises[0].current_set.total, null);
+  assert.equal(model.exercises[0].current_set.label, "Set 2");
+  assert.equal(model.exercises[0].current_set.primary_action_label, "Log set");
 });

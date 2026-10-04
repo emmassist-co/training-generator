@@ -13,6 +13,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     const cards = [...document.querySelectorAll('.exercise-card')];
     const checked = new Set(session.completed_exercise_ids || []);
     const timers = new Map();
+    const pendingActions = new Set();
     let activeIndex = 0;
     let elapsedSeconds = 0;
 
@@ -24,11 +25,28 @@ export function renderLiveSessionRuntime(runtimeData) {
       if (!response.ok) throw new Error('Save failed');
       return response.json();
     }
-    async function postEvent(type, payload) {
+    async function postEvent(type, payload, idempotencyKey) {
       setToast('Saving…');
-      const event = await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/events', { type, version: session.active_version, payload, idempotency_key: type + ':' + crypto.randomUUID() });
+      const event = await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/events', { type, version: session.active_version, payload, idempotency_key: idempotencyKey || type + ':' + crypto.randomUUID() });
       setToast('Saved');
       return event;
+    }
+    function buttonsForKey(key) { return [...document.querySelectorAll('[data-action-key="' + CSS.escape(key) + '"]')]; }
+    async function withPending(key, fn) {
+      if (pendingActions.has(key)) return null;
+      pendingActions.add(key);
+      for (const button of buttonsForKey(key)) button.disabled = true;
+      try { return await fn(); }
+      finally {
+        pendingActions.delete(key);
+        if (session.status !== 'completed') {
+          for (const button of buttonsForKey(key)) button.disabled = false;
+        }
+      }
+    }
+    function setActionError(card, text) {
+      const error = card?.querySelector('[data-error]');
+      if (error) error.textContent = text || '';
     }
     async function startSession() {
       if (session.status !== 'planned') return;
@@ -54,6 +72,8 @@ export function renderLiveSessionRuntime(runtimeData) {
       document.querySelector('#bottomExerciseName').textContent = exerciseNames[activeIndex] || 'Training';
       document.querySelector('#prevExercise').disabled = activeIndex === 0 || session.status === 'completed';
       document.querySelector('#nextExercise').disabled = activeIndex >= total - 1 || session.status === 'completed';
+      const currentId = cards[activeIndex]?.dataset.exerciseId;
+      document.querySelector('#bottomDone').disabled = !currentId || session.status === 'completed';
     }
     function showExercise(index) {
       if (!cards.length) return;
@@ -62,33 +82,52 @@ export function renderLiveSessionRuntime(runtimeData) {
       updateProgress();
     }
     async function markExercise(card, completed) {
-      if (session.status === 'completed') return;
+      if (session.status === 'completed' || !card) return false;
       const id = card.dataset.exerciseId;
-      card.classList.toggle('done', completed);
-      card.querySelector('[data-done]').dataset.completed = String(completed);
-      card.querySelector('[data-done]').textContent = completed ? 'Done' : 'Mark done';
-      if (completed) checked.add(id); else checked.delete(id);
-      updateProgress();
-      await postEvent('exercise_completion_updated', { session_exercise_id: id, completed, completed_ids: [...checked] });
+      const key = 'done:' + id;
+      return await withPending(key, async () => {
+        const nextChecked = new Set(checked);
+        if (completed) nextChecked.add(id); else nextChecked.delete(id);
+        await postEvent('exercise_completion_updated', { session_exercise_id: id, completed, completed_ids: [...nextChecked] });
+        card.classList.toggle('done', completed);
+        card.querySelector('[data-done]').dataset.completed = String(completed);
+        card.querySelector('[data-done]').textContent = completed ? 'Done' : 'Mark done';
+        checked.clear();
+        for (const checkedId of nextChecked) checked.add(checkedId);
+        updateProgress();
+        return true;
+      });
     }
     async function logSet(card) {
-      if (session.status === 'completed') return;
+      if (session.status === 'completed' || !card) return;
       const id = card.dataset.exerciseId;
-      const load = card.querySelector('[data-load]')?.value.trim();
-      const reps = card.querySelector('[data-reps]')?.value.trim();
-      const note = card.querySelector('[data-exercise-note]')?.value.trim();
-      await postEvent('set_logged', { session_exercise_id: id, load, reps, note });
-      const count = card.querySelector('[data-set-count]');
-      count.textContent = String(Number(count.textContent || 0) + 1);
-    }
-    function adjustCounter(card, kind, delta) {
-      const input = card.querySelector(kind === 'reps' ? '[data-reps]' : '[data-load]');
-      const readout = card.querySelector(kind === 'reps' ? '[data-reps-count]' : '[data-load-count]');
-      const current = Number.parseFloat(input.value || readout.textContent || 0) || 0;
-      const next = Math.max(0, current + Number(delta));
-      const normalized = Number.isInteger(next) ? String(next) : String(next.toFixed(1));
-      input.value = normalized;
-      readout.textContent = normalized;
+      const key = 'set:' + id;
+      await withPending(key, async () => {
+        setActionError(card, '');
+        const load = card.querySelector('[data-load]')?.value.trim();
+        const reps = card.querySelector('[data-reps]')?.value.trim();
+        const note = card.querySelector('[data-exercise-note]')?.value.trim();
+        const count = card.querySelector('[data-set-count]');
+        const nextCount = Number(count.textContent || 0) + 1;
+        try {
+          await postEvent('set_logged', { session_exercise_id: id, load, reps, note, set_number: nextCount }, key + ':' + nextCount + ':' + session.active_version);
+          count.textContent = String(nextCount);
+          const currentSetLabel = card.querySelector('[data-current-set-label]');
+          const totalSets = Number(currentSetLabel?.dataset.setTotal || 0);
+          const nextSetNumber = totalSets ? Math.min(nextCount + 1, totalSets) : nextCount + 1;
+          const plannedSetsComplete = Boolean(totalSets && nextCount >= totalSets);
+          if (currentSetLabel) currentSetLabel.textContent = plannedSetsComplete ? 'All ' + totalSets + ' sets logged' : totalSets ? 'Set ' + nextSetNumber + ' of ' + totalSets : 'Set ' + nextSetNumber;
+          for (const button of buttonsForKey(key)) button.textContent = plannedSetsComplete ? 'Add extra set' : 'Log set';
+          card.querySelector('[data-rest-row]')?.classList.add('timer-active');
+          updateProgress();
+          setToast(plannedSetsComplete ? 'All planned sets logged' : 'Set saved');
+          resetTimer(card);
+        } catch (error) {
+          setActionError(card, error.message || 'Save failed. Check connection and try again.');
+          setToast(error.message || 'Save failed');
+          throw error;
+        }
+      });
     }
     function toggleTimer(card, button) {
       const timer = card.querySelector('[data-timer]');
@@ -100,6 +139,7 @@ export function renderLiveSessionRuntime(runtimeData) {
         button.textContent = 'Start timer';
       } else {
         current.handle = setInterval(() => { current.seconds += 1; timer.textContent = formatTime(current.seconds); }, 1000);
+        card.querySelector('[data-rest-row]')?.classList.add('timer-active');
         button.textContent = 'Pause timer';
       }
       timers.set(index, current);
@@ -117,18 +157,16 @@ export function renderLiveSessionRuntime(runtimeData) {
     setInterval(() => { elapsedSeconds += 1; document.querySelector('#elapsedPill').textContent = formatTime(elapsedSeconds) + ' elapsed'; }, 1000);
     document.querySelector('#prevExercise')?.addEventListener('click', () => showExercise(activeIndex - 1));
     document.querySelector('#nextExercise')?.addEventListener('click', () => showExercise(activeIndex + 1));
-    document.querySelector('#bottomAddSet')?.addEventListener('click', () => logSet(cards[activeIndex]).catch((error) => setToast(error.message)));
     document.querySelector('#bottomDone')?.addEventListener('click', async () => {
       try {
-        await markExercise(cards[activeIndex], true);
-        if (activeIndex < cards.length - 1) showExercise(activeIndex + 1);
+        const advanced = await markExercise(cards[activeIndex], true);
+        if (advanced && activeIndex < cards.length - 1) showExercise(activeIndex + 1);
       } catch (error) { setToast(error.message); }
     });
 
     for (const card of cards) {
       card.querySelector('[data-log-set]')?.addEventListener('click', () => logSet(card).catch((error) => setToast(error.message)));
       card.querySelector('[data-done]')?.addEventListener('click', () => markExercise(card, card.querySelector('[data-done]').dataset.completed !== 'true').catch((error) => setToast(error.message)));
-      for (const button of card.querySelectorAll('[data-counter]')) button.addEventListener('click', () => adjustCounter(card, button.dataset.counter, button.dataset.delta));
       card.querySelector('[data-action="toggle-timer"]')?.addEventListener('click', (event) => toggleTimer(card, event.currentTarget));
       card.querySelector('[data-action="reset-timer"]')?.addEventListener('click', () => resetTimer(card));
     }

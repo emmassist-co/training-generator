@@ -27,9 +27,11 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
   assert.match(html, /^<!doctype html><html lang="en">/);
   assert.match(html, /<h1>Replay &lt;Session&gt;<\/h1>/);
   assert.match(html, /<h2>Row &lt;strong&gt;<\/h2>/);
-  assert.match(html, /Log this set/);
-  assert.match(html, /Reps done counter/);
-  assert.match(html, /Load used counter/);
+  assert.match(html, /Log set/);
+  assert.match(html, /Set 1 of 3/);
+  assert.match(html, /Current set/);
+  assert.doesNotMatch(html, /Reps done counter/);
+  assert.doesNotMatch(html, /Load used counter/);
   assert.match(html, /Rest timer/);
   assert.match(html, /Plan note/);
   assert.match(html, /value="50 kg"/);
@@ -54,8 +56,69 @@ test("completed live session renderer removes proposal writes and disables botto
   });
 
   assert.match(html, /completed sessions are read-only/);
-  assert.match(html, /id="bottomAddSet" disabled/);
+  assert.doesNotMatch(html, /id="bottomAddSet"/);
   assert.match(html, /id="bottomDone" disabled/);
   assert.doesNotMatch(html, />Apply change</);
-  assert.match(html, /if \(session\.status === 'completed'\) return;/);
+  assert.match(html, /session\.status === 'completed'/);
+});
+
+test("live session renderer keeps current-set controls before optional media and details", () => {
+  const html = renderSessionPage({
+    id: "s3",
+    profile_id: "alex",
+    title: "Mobile Focus",
+    status: "active",
+    active_version: 1,
+    exercises: [{
+      id: "ex-1",
+      exercise_id: "Cable_Row",
+      name: "Cable Row",
+      prescription: { sets: 3, reps: 10, load: "50 kg" },
+      images: ["Cable_Row/0.jpg"],
+      rationale: "Build posterior chain capacity.",
+    }],
+    events: [],
+  });
+
+  const statusIndex = html.indexOf('class="session-status-bar"');
+  const contextIndex = html.indexOf('class="exercise-context"');
+  const setIndex = html.indexOf('<section class="set-console"');
+  const logIndex = html.indexOf('>Log set</button>');
+  assert.ok(statusIndex < contextIndex);
+  assert.ok(contextIndex < setIndex);
+  assert.ok(setIndex < logIndex);
+  assert.ok(setIndex < html.indexOf('<details class="details-panel"'));
+  assert.ok(setIndex < html.indexOf("Build posterior chain capacity."));
+  assert.match(html, /data-action-key="set:ex-1"/);
+  assert.match(html, /data-current-set-label/);
+  assert.match(html, /nextSetNumber/);
+  assert.match(html, /All ' \+ totalSets \+ ' sets logged/);
+  assert.match(html, /Add extra set/);
+  assert.match(html, /const advanced = await markExercise/);
+  assert.doesNotMatch(html, /id="bottomAddSet"/);
+  assert.doesNotMatch(html, /querySelector\('#bottomAddSet'\)/);
+  assert.doesNotMatch(html, /key \+ ':' \+ completed \+ ':'/);
+  assert.match(html, /data-error/);
+  assert.match(html, /rest-row/);
+  assert.match(html, /timer-active/);
+});
+
+test("live session renderer has an empty workout state", () => {
+  const html = renderSessionPage({ id: "empty", status: "active", active_version: 1, exercises: [] });
+  assert.match(html, /No exercises in this session yet/);
+  assert.doesNotMatch(html, /id="bottomAddSet"/);
+  assert.match(html, /Ask coach/);
+});
+
+test("live session renderer labels extra sets after planned sets are logged", () => {
+  const html = renderSessionPage({
+    id: "s4",
+    status: "active",
+    active_version: 1,
+    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 1, reps: 8 } }],
+    events: [{ id: "set-1", type: "set_logged", payload: { session_exercise_id: "ex-1", reps: "8" } }],
+  });
+
+  assert.match(html, /All 1 sets logged/);
+  assert.match(html, />Add extra set<\/button>/);
 });
