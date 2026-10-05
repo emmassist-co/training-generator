@@ -659,7 +659,10 @@ export function createD1TrainingStore(db) {
           ec.instructions_json AS catalog_instructions_json,
           ec.images_json AS catalog_images_json
         FROM session_exercises se
-        LEFT JOIN exercise_catalog ec ON ec.id = se.exercise_id
+        LEFT JOIN exercise_catalog ec ON ec.id = se.exercise_id OR (
+          rtrim(lower(ec.name), 's') = rtrim(lower(se.name), 's')
+          AND NOT EXISTS (SELECT 1 FROM exercise_catalog preferred WHERE preferred.id = se.exercise_id)
+        )
         WHERE se.session_id = ? AND se.is_active = 1
         ORDER BY se.position ASC
       `).bind(sessionId).all();
