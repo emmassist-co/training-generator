@@ -8,6 +8,11 @@ type LiveSessionModel = ReturnType<typeof buildLiveSessionViewModel>;
 type LiveExercise = LiveSessionModel["exercises"][number];
 type LiveMetric = LiveExercise["metrics"][number];
 
+function formatDuration(totalSeconds: number) {
+  const safe = Math.max(0, Number(totalSeconds) || 0);
+  return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
+}
+
 export function renderLiveSessionPage(session: unknown) {
   const model = buildLiveSessionViewModel(session as Parameters<typeof buildLiveSessionViewModel>[0]);
   const html = renderToString(<LiveTrainingSessionDocument model={model} />);
@@ -65,7 +70,7 @@ function Masthead({ model }: { model: LiveSessionModel }) {
         <span class="state-mark" aria-hidden="true"></span>
         <span id="statusPill">{session.is_completed ? "Completed" : session.status === "planned" ? "Starting" : "Live"}</span>
         <span aria-hidden="true">·</span>
-        <span id="elapsedPill">00:00</span>
+        <span id="elapsedPill">{formatDuration(session.elapsed_seconds)}</span>
       </div>
     </header>
   );
@@ -148,7 +153,10 @@ function SetConsole({ exercise, index, isCompleted }: { exercise: LiveExercise; 
             <span data-action-label>{exercise.current_set.primary_action_label}</span><span data-action-suffix>{String(exercise.logged_set_count + 1).padStart(2, "0")} →</span>
           </button>
           <div class="pending-line" data-pending-line aria-hidden="true"><span></span></div>
-          <div class="action-error" data-error role="alert" aria-live="assertive" hidden></div>
+          <div class="action-error" data-error role="alert" aria-live="assertive" hidden>
+            <span class="error-mark" aria-hidden="true">!</span>
+            <span><strong data-error-title>Not saved</strong><small data-error-detail></small><em data-error-trace>Sending… → Not saved</em></span>
+          </div>
         </>
       ) : null}
       <div class="set-feedback-row">
@@ -253,7 +261,7 @@ function SessionNotes({ model }: { model: LiveSessionModel }) {
       {!isCompleted ? <><span class="micro-label">Effort check</span><div class="effort-actions"><button type="button" data-write-control data-effort="too_easy" aria-pressed="false">Too easy</button><button type="button" data-write-control data-effort="too_hard" aria-pressed="false">Too hard</button><button type="button" data-write-control data-effort="pain" aria-pressed="false">Pain</button></div></> : null}
       <label class="session-note-field" for="notes"><span>Session notes</span><textarea class="session-note" id="notes" placeholder="Pain, swaps, loads, how it felt…" readonly={isCompleted || undefined}>{model.notes.latest}</textarea></label>
       <span class="toast" id="toast" role="status" aria-live="polite">{isCompleted ? "Session completed · Read-only" : "Ready"}</span>
-      {!isCompleted ? <div class="finish-actions"><button type="button" data-write-control id="saveNote">Save note</button><button type="button" data-write-control id="complete">Complete session <span>→</span></button></div> : <div class="readonly-callout compact"><span class="diamond-check" aria-hidden="true">✓</span><span><strong>Session completed · Read-only</strong><small>Review remains available.</small></span></div>}
+      {!isCompleted ? <div class="finish-actions"><button type="button" data-write-control data-action-key="note" id="saveNote">Save note</button><button type="button" data-write-control data-action-key="complete" id="complete">Complete session <span>→</span></button></div> : <div class="readonly-callout compact"><span class="diamond-check" aria-hidden="true">✓</span><span><strong>Session completed · Read-only</strong><small>Review remains available.</small></span></div>}
     </section>
   );
 }

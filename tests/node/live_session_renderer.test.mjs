@@ -154,7 +154,7 @@ test("live session renderer keeps unique and repeated behavior hooks scoped", ()
     "data-exercise-id", "data-current-set-label", "data-set-count", "data-reps", "data-load",
     "data-exercise-note", "data-error", "data-log-set", "data-done", "data-rest-row", "data-timer",
   ]) {
-    const token = hook === "data-timer" ? "data-timer=" : hook;
+    const token = hook === "data-timer" || hook === "data-error" ? `${hook}=` : hook;
     assert.equal(occurrenceCount(markup, token), 2, `expected ${hook} once per exercise`);
   }
   assert.equal(occurrenceCount(markup, "data-proposal-id"), 2);

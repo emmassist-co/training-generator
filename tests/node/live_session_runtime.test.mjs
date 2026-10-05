@@ -81,6 +81,9 @@ test("set logging exposes pending, blocks duplicates, and keeps values on failur
   releaseRequest();
   await pendingPage.waitForFunction(() => !document.querySelector("[data-log-set]")?.disabled);
   assert.equal(pendingCalls.length, 1);
+  assert.equal(await pendingPage.locator(".saved-sets").getAttribute("aria-label"), "Saved sets");
+  assert.match(await pendingPage.locator(".saved-sets").textContent(), /01\s+10×—/);
+  assert.doesNotMatch(await pendingPage.locator(".saved-sets").textContent(), /No sets logged/);
   assert.equal(await pendingPage.locator("[data-timer-state]").textContent(), "Running");
   assert.equal(await pendingPage.locator("[data-rest-row]").evaluate((node) => node.classList.contains("timer-active")), true);
   await pendingPage.locator('[data-action="toggle-timer"]').click();
@@ -115,12 +118,48 @@ test("set logging exposes pending, blocks duplicates, and keeps values on failur
   await failedPage.locator("[data-exercise-note]").fill("Grip slipped");
   await failedPage.locator("[data-log-set]").click();
   await failedPage.locator("[data-error]").waitFor({ state: "visible" });
-  assert.match(await failedPage.locator("[data-error]").textContent(), /Set not saved.*values are still here/i);
+  assert.match(await failedPage.locator("[data-error]").textContent(), /Not saved.*values are still here/i);
   assert.equal(await failedPage.locator("[data-action-label]").textContent(), "Try log set again");
   assert.equal(await failedPage.locator("[data-reps]").inputValue(), "9");
   assert.equal(await failedPage.locator("[data-load]").inputValue(), "47.5");
   assert.equal(await failedPage.locator("[data-exercise-note]").inputValue(), "Grip slipped");
   assert.equal(await failedPage.locator("[data-log-set]").isDisabled(), false);
+});
+
+test("completion stops and remains editable when the structured note write fails", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const calls = [];
+  const html = renderSessionPage({
+    id: "note-failure-session",
+    status: "active",
+    active_version: 2,
+    exercises: [{ id: "ex-1", name: "Cable Row", prescription: { sets: 3, reps: 10 } }],
+    events: [],
+  });
+  const page = await browser.newPage();
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.resourceType() === "document") return route.fulfill({ status: 200, contentType: "text/html", body: html });
+    if (path.startsWith("/api/")) {
+      const body = requestBody(request);
+      calls.push({ path, body });
+      if (path.endsWith("/events") && body.type === "note_added") {
+        return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Note save failed" }) });
+      }
+      return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    }
+    return route.abort();
+  });
+  await page.goto("http://localhost/sessions/note-failure-session");
+  await page.locator("#notes").fill("Do not lose this note");
+  await page.locator("#complete").click();
+  await page.waitForFunction(() => document.querySelector("#toast")?.textContent === "Note save failed");
+  assert.equal(calls.some((call) => call.path.endsWith("/complete")), false);
+  assert.equal(await page.locator("#notes").isDisabled(), false);
+  assert.equal(await page.locator("#complete").isDisabled(), false);
+  assert.equal(await page.locator("#statusPill").textContent(), "Live");
 });
 
 test("completed session keeps review navigation usable without write requests", async (t) => {

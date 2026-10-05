@@ -72,10 +72,18 @@ test("live session view model derives replayed state and media safely", () => {
   assert.equal(model.exercises[1].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hamstring%20Curl/0.jpg");
 });
 
-test("live session view model marks completed sessions read-only", () => {
-  const model = buildLiveSessionViewModel({ id: "s2", status: "completed", exercises: [] });
+test("live session view model marks completed sessions read-only and preserves duration", () => {
+  const model = buildLiveSessionViewModel({
+    id: "s2",
+    status: "completed",
+    started_at: "2026-10-04T09:47:54.000Z",
+    completed_at: "2026-10-04T10:30:00.000Z",
+    exercises: [],
+  });
   assert.equal(model.session.is_completed, true);
   assert.equal(model.session.profile_id, "default");
+  assert.equal(model.session.elapsed_seconds, 2526);
+  assert.equal(model.runtime.session.elapsed_seconds, 2526);
   assert.equal(model.progress.exercise_count, 0);
   assert.equal(model.progress.has_exercises, false);
 });

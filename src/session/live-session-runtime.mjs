@@ -17,7 +17,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     const timers = new Map();
     const pendingActions = new Set();
     let activeIndex = 0;
-    let elapsedSeconds = 0;
+    let elapsedSeconds = Number(session.elapsed_seconds || 0);
 
     function apiUrl(path) { const url = new URL(path, location.href); url.username = ''; url.password = ''; return url.href; }
     function setToast(text) {
@@ -55,8 +55,12 @@ export function renderLiveSessionRuntime(runtimeData) {
       const error = card?.querySelector('[data-error]');
       if (!error) return;
       error.hidden = !text;
-      const detail = text && /[.!?]$/.test(text) ? text : text + '.';
-      error.textContent = text ? 'Set not saved. ' + detail + ' Your values are still here.' : '';
+      if (!text) return;
+      const detail = /[.!?]$/.test(text) ? text : text + '.';
+      const title = error.querySelector('[data-error-title]');
+      const message = error.querySelector('[data-error-detail]');
+      if (title) title.textContent = 'Not saved';
+      if (message) message.textContent = detail + ' Your values are still here.';
     }
     function setFeedback(card, title, detail) {
       const feedback = card?.querySelector('[data-set-feedback]');
@@ -149,6 +153,25 @@ export function renderLiveSessionRuntime(runtimeData) {
         return true;
       });
     }
+    function appendSavedSet(card, number, reps, load) {
+      const row = card.querySelector('.saved-sets');
+      if (!row) return;
+      const count = row.querySelector('[data-set-count]');
+      if (row.classList.contains('empty')) {
+        row.replaceChildren(...(count ? [count] : []));
+        row.classList.remove('empty');
+        row.setAttribute('aria-label', 'Saved sets');
+        const label = document.createElement('span');
+        label.className = 'metric-label';
+        label.textContent = 'Saved sets';
+        row.append(label);
+      }
+      const item = document.createElement('span');
+      const index = document.createElement('b');
+      index.textContent = String(number).padStart(2, '0');
+      item.append(index, document.createTextNode(' ' + (reps || '—') + '×' + (load || '—')));
+      row.append(item);
+    }
     async function logSet(card) {
       if (session.status === 'completed' || !card) return;
       const id = card.dataset.exerciseId;
@@ -164,6 +187,7 @@ export function renderLiveSessionRuntime(runtimeData) {
         try {
           await postEvent('set_logged', { session_exercise_id: id, load, reps, note, set_number: nextCount }, key + ':' + nextCount + ':' + session.active_version);
           if (count) count.textContent = String(nextCount);
+          appendSavedSet(card, nextCount, reps, load);
           const currentSetLabel = card.querySelector('[data-current-set-label]');
           const positionLabel = card.querySelector('[data-position-label]');
           const totalSets = Number(currentSetLabel?.dataset.setTotal || 0);
@@ -257,7 +281,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     }
 
     async function saveNotes() { const text = notes?.value.trim(); if (!text) return; await postEvent('note_added', { note: text }); }
-    saveNote?.addEventListener('click', () => saveNotes().catch((error) => setToast(error.message)));
+    saveNote?.addEventListener('click', () => withPending('note', saveNotes).catch((error) => setToast(error.message)));
     for (const button of document.querySelectorAll('[data-effort]')) button.addEventListener('click', () => postEvent('effort_flag_logged', { kind: button.dataset.effort }).then(() => { for (const item of document.querySelectorAll('[data-effort]')) item.setAttribute('aria-pressed', String(item === button)); }).catch((error) => setToast(error.message)));
     for (const proposal of document.querySelectorAll('[data-proposal-id]')) {
       const proposalId = proposal.dataset.proposalId;
@@ -272,16 +296,15 @@ export function renderLiveSessionRuntime(runtimeData) {
         catch (error) { setToast(error.message); }
       });
     }
-    complete?.addEventListener('click', async () => {
+    complete?.addEventListener('click', () => withPending('complete', async () => {
       setToast('Completing…');
-      try {
-        await saveNotes().catch(() => null);
-        await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/complete', { completion: { completed_at: new Date().toISOString(), notes: notes?.value.trim() || '', completed_exercise_ids: [...checked] } });
-        setToast('Completed and logged');
-        session.status = 'completed';
-        setReadOnlyAfterComplete();
-      } catch (error) { setToast(error.message); }
-    });
+      await saveNotes();
+      await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/complete', { completion: { completed_at: new Date().toISOString(), notes: notes?.value.trim() || '', completed_exercise_ids: [...checked] } });
+      setToast('Completed and logged');
+      session.status = 'completed';
+      setReadOnlyAfterComplete();
+      setTimeout(() => location.reload(), 1000);
+    }).catch((error) => setToast(error.message)));
     showExercise(0);
   </script>`;
 }

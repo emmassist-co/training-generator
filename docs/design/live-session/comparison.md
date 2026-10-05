@@ -30,10 +30,16 @@ Approved state authority: [approved-states.png](./approved-states.png)
 
 ## Automated browser matrix
 
-Run:
+Run the checks without changing tracked captures:
 
 ```sh
 node --import tsx --test tests/node/live_session_visual.test.mjs
+```
+
+Refresh the reviewed captures only when the visual change is intentional:
+
+```sh
+UPDATE_VISUALS=1 node --import tsx --test tests/node/live_session_visual.test.mjs
 ```
 
 The deterministic test:
@@ -44,10 +50,10 @@ The deterministic test:
 - checks 320 × 568, 390 × 844, 430 × 932, and 1440 × 1200;
 - checks horizontal overflow, shell/navigation overlap, primary-action reachability, the exact 220/740/340 desktop columns, and all visible enabled targets at 44 × 44 CSS pixels or larger;
 - checks primary, secondary, placeholder, primary-action, and focus-indicator contrast against the WCAG thresholds in `visual-system.md`;
-- checks keyboard focus order and the visible 2px acid focus outline;
+- checks the primary mobile focus path, desktop route focus order, and the visible 2px acid focus outline;
 - checks reduced motion with Playwright's `reducedMotion: "reduce"` emulation;
-- uses a nonzero safe-area proxy by applying 32px left, 28px right, and 18px bottom insets to the same shell regions that consume `env(safe-area-inset-*)` in production;
-- uses a 200% zoom proxy by applying `html { zoom: 2 }` to a 640 × 1136 viewport, which gives the mobile flow a 320 × 568 effective visual area; this checks CSS reflow and clipping, not operating-system magnification;
+- uses a nonzero safe-area proxy by applying 24px top, 32px left, 28px right, and 18px bottom insets to the same shell regions that consume `env(safe-area-inset-*)` in production, then reruns overlap and reachability checks;
+- uses a 200% zoom proxy with the long-name and verbose-guidance fixture by applying `html { zoom: 2 }` to a 640 × 1136 viewport, which gives the mobile flow a 320 × 568 effective visual area; this checks CSS reflow, action reachability, and clipping, not operating-system magnification;
 - uses a keyboard-height proxy by focusing the set-note field and contracting the viewport from 390 × 844 to 390 × 520; it does not claim that desktop Chromium opened a mobile keyboard;
 - executes post-log/rest, extra-set, pending, error, completed/read-only, empty, and long-copy fixtures without production state.
 
@@ -57,6 +63,9 @@ The deterministic test:
 | --- | --- | --- |
 | Long exercise names collided with the media caption and could clip inside the default 152px plate. | High for affected exercise names. | **Corrected.** Names over 24 characters use the same treatment on a 216px mobile plate; the test asserts title/caption separation. |
 | A prescription with only two visible metrics retained a three-column grid, making verbose reps collide with rest. | High for long or missing prescription values. | **Corrected.** The strip now uses the count of visible metrics and allows mobile values to wrap. |
+| Post-log feedback updated while the saved-set row still said `No sets logged yet`. | High because the state contradicted the stored action. | **Corrected.** A successful log now appends the structured set summary in place before rest starts; browser tests assert the stale empty copy is gone. |
+| Completed and resumed sessions showed `00:00` instead of persisted elapsed time. | Medium because the status line lost useful review context. | **Corrected.** The view model derives elapsed seconds from persisted timestamps and the completed capture shows `42:06`. |
+| Inactive desktop route labels used the low-contrast decorative tone. | Medium for route scanning. | **Corrected.** Route names and set details use the AA body-muted tone, with desktop contrast checks. |
 | Actual-reps defaults can contain a longer text prescription such as `8–12 each side`. | Medium. | **Corrected for layout.** The integrated input keeps its full value and uses a compact value size instead of widening the page; native input scrolling preserves the full editable text. |
 | Concept fixtures use fixed sample content while the build shows runtime feedback, saved-set, and support copy. | Low; no visual-system change. | **Expected.** The approved content-authority rule requires runtime data and existing contracts to win. |
 | The state board compresses several states into one presentation sheet; production captures show each state at the full 390 × 844 viewport. | Low; proof is more legible. | **Expected.** Treatment, hierarchy, color, and status cues match; geometry follows the approved responsive shell. |

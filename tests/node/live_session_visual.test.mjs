@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
 import { chromium } from "playwright";
 import { renderSessionPage } from "../../src/routes/session-page.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const captureDir = path.join(root, "docs/design/live-session/implementation");
+const captureDir = process.env.UPDATE_VISUALS === "1"
+  ? path.join(root, "docs/design/live-session/implementation")
+  : path.join(tmpdir(), "flue-live-session-visual");
 const approvedConcept = await readFile(path.join(root, "docs/design/live-session/concepts/approved-desktop.html"), "utf8");
 const imageMatch = approvedConcept.match(/data:image\/jpeg;base64,([^\"]+)/);
 assert.ok(imageMatch, "approved exercise image fixture must be available");
@@ -44,6 +47,15 @@ function session(overrides = {}) {
     events: [],
     ...overrides,
   };
+}
+
+function longCopyExercise() {
+  return exercise({
+    name: "Single-arm kneeling cable row with rotation",
+    prescription: { sets: 4, reps: "8–12 each side", load: "Choose a smooth load that leaves two good repetitions in reserve", rest_seconds: 105 },
+    rationale: "Keep the ribs stacked over the pelvis, let the shoulder blade travel naturally, and stop if the long range changes the planned movement quality. ".repeat(3),
+    alternatives: [{ name: "Chest-supported single-arm dumbbell row with a neutral grip" }],
+  });
 }
 
 function setEvent(number, payload = {}) {
@@ -154,7 +166,7 @@ async function capture(page, name) {
     for (const handle of window.__visualIntervalHandles || []) clearInterval(handle);
     window.__visualIntervalHandles = [];
     const elapsed = document.querySelector("#elapsedPill");
-    if (elapsed) elapsed.textContent = "00:00";
+    if (elapsed && document.querySelector("#statusPill")?.textContent !== "Completed") elapsed.textContent = "00:00";
     window.scrollTo(0, 0);
     const workspace = document.querySelector(".workspace-scroll");
     if (workspace) {
@@ -175,7 +187,7 @@ async function assertNoHorizontalOverflow(page, label) {
   assert.ok(dimensions.body <= dimensions.viewport + 1, `${label}: body width ${dimensions.body} exceeds ${dimensions.viewport}`);
 }
 
-async function assertShellAndActionDoNotOverlap(page, label) {
+async function assertShellAndActionDoNotOverlap(page, label, scale = 1) {
   const geometry = await page.evaluate(() => {
     const rect = (selector) => {
       const node = document.querySelector(selector);
@@ -191,7 +203,7 @@ async function assertShellAndActionDoNotOverlap(page, label) {
       action: rect(".exercise-card.is-active [data-log-set]"),
     };
   });
-  assert.equal(Math.round(geometry.shell.height), geometry.viewportHeight, `${label}: shell must track the viewport`);
+  assert.equal(Math.round(geometry.shell.height / scale), geometry.viewportHeight, `${label}: shell must track the viewport`);
   if (geometry.workspace && geometry.bottom) {
     assert.ok(geometry.workspace.bottom <= geometry.bottom.top + 1, `${label}: bottom navigation overlaps the scroll owner`);
   }
@@ -265,15 +277,17 @@ test("live session visual state matrix remains responsive and accessible", { tim
   await capture(activeMobile.page, "active-mobile-390x844.png");
 
   const focusSequence = [];
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < 8; index += 1) {
     await activeMobile.page.keyboard.press("Tab");
     focusSequence.push(await activeMobile.page.evaluate(() => {
       if (document.activeElement?.matches("[data-reps]")) return "reps";
       if (document.activeElement?.matches("[data-load]")) return "load";
+      if (document.activeElement?.matches("[data-exercise-note]")) return "note";
+      if (document.activeElement?.matches("[data-log-set]")) return "log";
       return document.activeElement?.getAttribute("data-step-field") + ":" + document.activeElement?.getAttribute("data-step");
     }));
   }
-  assert.deepEqual(focusSequence, ["reps", "reps:up", "reps:down", "load"]);
+  assert.deepEqual(focusSequence, ["reps", "reps:up", "reps:down", "load", "load:up", "load:down", "note", "log"]);
   const focusStyle = await activeMobile.page.evaluate(() => {
     const style = getComputedStyle(document.activeElement);
     return { width: style.outlineWidth, style: style.outlineStyle, color: style.outlineColor };
@@ -291,6 +305,19 @@ test("live session visual state matrix remains responsive and accessible", { tim
     return Math.round(rect.width);
   }));
   assert.deepEqual(desktopColumns, [220, 740, 340]);
+  const routeColors = await activeDesktop.page.locator('[data-route-item="1"] button').evaluate((button) => ({
+    background: getComputedStyle(document.body).backgroundColor,
+    name: getComputedStyle(button.querySelector("strong")).color,
+    detail: getComputedStyle(button.querySelector("small")).color,
+  }));
+  assert.ok(contrast(routeColors.name, routeColors.background) >= 4.5, "desktop route names must meet WCAG AA");
+  assert.ok(contrast(routeColors.detail, routeColors.background) >= 4.5, "desktop route details must meet WCAG AA");
+  const desktopFocus = [];
+  for (let index = 0; index < 3; index += 1) {
+    await activeDesktop.page.keyboard.press("Tab");
+    desktopFocus.push(await activeDesktop.page.evaluate(() => document.activeElement?.getAttribute("data-exercise-jump")));
+  }
+  assert.deepEqual(desktopFocus, ["0", "1", "2"], "desktop route controls must lead keyboard order");
   await capture(activeDesktop.page, "active-desktop-1440x1200.png");
   await activeDesktop.close();
 
@@ -303,20 +330,25 @@ test("live session visual state matrix remains responsive and accessible", { tim
   }
 
   const safeArea = await openFixture(browser, session(), { viewport: { width: 320, height: 568 } });
-  await safeArea.page.addStyleTag({ content: ".workspace-scroll{padding-left:32px!important;padding-right:28px!important}.bottom-bar{margin-left:32px!important;margin-right:28px!important;padding-bottom:18px!important}" });
+  await safeArea.page.addStyleTag({ content: ".session-shell{padding-top:24px!important}.workspace-scroll{padding-left:32px!important;padding-right:28px!important}.bottom-bar{margin-left:32px!important;margin-right:28px!important;padding-bottom:18px!important}" });
   await assertNoHorizontalOverflow(safeArea.page, "nonzero safe-area proxy");
+  await assertShellAndActionDoNotOverlap(safeArea.page, "nonzero safe-area proxy");
   const safeInsets = await safeArea.page.evaluate(() => {
     const workspace = getComputedStyle(document.querySelector(".workspace-scroll"));
     const bottom = getComputedStyle(document.querySelector(".bottom-bar"));
-    return [workspace.paddingLeft, workspace.paddingRight, bottom.marginLeft, bottom.marginRight, bottom.paddingBottom];
+    const shell = getComputedStyle(document.querySelector(".session-shell"));
+    return [shell.paddingTop, workspace.paddingLeft, workspace.paddingRight, bottom.marginLeft, bottom.marginRight, bottom.paddingBottom];
   });
-  assert.deepEqual(safeInsets, ["32px", "28px", "32px", "28px", "18px"]);
+  assert.deepEqual(safeInsets, ["24px", "32px", "28px", "32px", "28px", "18px"]);
   await safeArea.close();
 
-  const zoomProxy = await openFixture(browser, session(), { viewport: { width: 640, height: 1136 } });
+  const zoomProxy = await openFixture(browser, session({ exercises: [longCopyExercise()] }), { viewport: { width: 640, height: 1136 } });
   await zoomProxy.page.addStyleTag({ content: "html{zoom:2}" });
-  await assertNoHorizontalOverflow(zoomProxy.page, "200% CSS zoom proxy");
-  await assertMinimumTargets(zoomProxy.page, "200% CSS zoom proxy");
+  await assertNoHorizontalOverflow(zoomProxy.page, "200% CSS zoom proxy with long copy");
+  await assertShellAndActionDoNotOverlap(zoomProxy.page, "200% CSS zoom proxy with long copy", 2);
+  await assertMinimumTargets(zoomProxy.page, "200% CSS zoom proxy with long copy");
+  const zoomTextFits = await zoomProxy.page.locator(".exercise-card.is-active .exercise-media h2").evaluate((title) => title.scrollWidth <= title.clientWidth + 1);
+  assert.equal(zoomTextFits, true, "long title must reflow at the 200% zoom proxy");
   await zoomProxy.close();
 
   const keyboardProxy = await openFixture(browser, session(), { viewport: { width: 390, height: 844 } });
@@ -350,6 +382,9 @@ test("live session visual state matrix remains responsive and accessible", { tim
   await rest.page.locator(".exercise-card.is-active [data-log-set]").click();
   await rest.page.waitForFunction(() => document.querySelector(".exercise-card.is-active [data-rest-row]")?.classList.contains("timer-active"));
   assert.equal(await rest.page.locator(".exercise-card.is-active [data-timer-state]").textContent(), "Running");
+  assert.equal(await rest.page.locator(".exercise-card.is-active .saved-sets").getAttribute("aria-label"), "Saved sets");
+  assert.match(await rest.page.locator(".exercise-card.is-active .saved-sets").textContent(), /01\s+10×50 kg/);
+  assert.doesNotMatch(await rest.page.locator(".exercise-card.is-active .saved-sets").textContent(), /No sets logged/);
   await capture(rest.page, "post-log-active-rest-mobile.png");
   await rest.close();
 
@@ -374,18 +409,23 @@ test("live session visual state matrix remains responsive and accessible", { tim
   await error.page.locator(".exercise-card.is-active [data-log-set]").click();
   await error.page.locator(".exercise-card.is-active [data-error]").waitFor({ state: "visible" });
   assert.equal(await error.page.locator(".exercise-card.is-active [data-error]").getAttribute("role"), "alert");
+  assert.equal(await error.page.locator(".exercise-card.is-active [data-error-title]").textContent(), "Not saved");
+  assert.equal(await error.page.locator(".exercise-card.is-active [data-error-trace]").textContent(), "Sending… → Not saved");
+  assert.match(await error.page.locator(".exercise-card.is-active [data-error-detail]").textContent(), /values are still here/i);
   assert.equal(await error.page.locator(".exercise-card.is-active [data-exercise-note]").inputValue(), "Grip slipped; keep the next set lighter.");
   await capture(error.page, "error-values-kept-mobile.png");
   await error.close();
 
   const completed = await openFixture(browser, session({
     status: "completed",
+    started_at: "2026-10-04T09:47:54.000Z",
     completed_at: "2026-10-04T10:30:00.000Z",
     completed_exercise_ids: ["ex-row"],
     events: [setEvent(1), setEvent(2), setEvent(3, { note: "Smooth final set." }), { id: "note", type: "note_added", payload: { note: "Good session." } }],
   }));
   assert.equal(await completed.page.locator("[data-log-set]").count(), 0);
   assert.equal(await completed.page.locator("[data-write-control]").count(), 0);
+  assert.equal(await completed.page.locator("#elapsedPill").textContent(), "42:06");
   await assertNoHorizontalOverflow(completed.page, "completed read-only");
   await capture(completed.page, "completed-read-only-mobile.png");
   assert.equal(await completed.page.locator("#nextExercise").isDisabled(), false);
@@ -404,14 +444,7 @@ test("live session visual state matrix remains responsive and accessible", { tim
   assert.ok(emptyHeader.top >= 24 && emptyHeader.top <= 27, "empty-state masthead must remain in view");
   await empty.close();
 
-  const longCopy = await openFixture(browser, session({
-    exercises: [exercise({
-      name: "Single-arm kneeling cable row with rotation",
-      prescription: { sets: 4, reps: "8–12 each side", load: "Choose a smooth load that leaves two good repetitions in reserve", rest_seconds: 105 },
-      rationale: "Keep the ribs stacked over the pelvis, let the shoulder blade travel naturally, and stop if the long range changes the planned movement quality. ".repeat(3),
-      alternatives: [{ name: "Chest-supported single-arm dumbbell row with a neutral grip" }],
-    })],
-  }));
+  const longCopy = await openFixture(browser, session({ exercises: [longCopyExercise()] }));
   await assertNoHorizontalOverflow(longCopy.page, "long-copy fixture");
   const longTextLayout = await longCopy.page.evaluate(() => {
     const title = document.querySelector(".exercise-card.is-active .exercise-media h2").getBoundingClientRect();

@@ -104,12 +104,21 @@ export function pendingSessionProposals(events = []) {
     .map((event) => ({ id: event.id, reason: event.reason, patch: event.payload?.patch || null }));
 }
 
+function elapsedSeconds(session) {
+  const startedAt = Date.parse(session.started_at || session.startedAt || "");
+  if (!Number.isFinite(startedAt)) return 0;
+  const completedAt = Date.parse(session.completed_at || session.completedAt || "");
+  const endedAt = session.status === "completed" && Number.isFinite(completedAt) ? completedAt : Date.now();
+  return Math.max(0, Math.floor((endedAt - startedAt) / 1000));
+}
+
 export function buildLiveSessionViewModel(session = {}) {
   const exercises = session.exercises || [];
   const liveState = deriveSessionLiveState(session);
   const completed = new Set(liveState.completed_exercise_ids || []);
   const isCompleted = session.status === "completed";
   const latestNote = liveState.notes?.at(-1)?.text || "";
+  const elapsed = elapsedSeconds(session);
 
   return {
     session: {
@@ -120,6 +129,7 @@ export function buildLiveSessionViewModel(session = {}) {
       active_version: session.active_version,
       summary: session.summary || "Train from one focused exercise card. Reps, load, timer, notes, and coach-readable logs save while you work.",
       is_completed: isCompleted,
+      elapsed_seconds: elapsed,
     },
     progress: {
       completed_count: completed.size,
@@ -165,6 +175,7 @@ export function buildLiveSessionViewModel(session = {}) {
         completed_exercise_ids: liveState.completed_exercise_ids,
         set_logs: liveState.set_logs,
         exercise_count: exercises.length,
+        elapsed_seconds: elapsed,
       },
       exerciseNames: exercises.map((exercise) => exercise.name),
     },
