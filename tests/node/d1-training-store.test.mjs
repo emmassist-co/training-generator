@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createMemoryTrainingStore } from "../../src/db/training-store.mjs";
+import { readFile } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
+import { createD1TrainingStore, createMemoryTrainingStore } from "../../src/db/training-store.mjs";
 
 test("memory training store creates planned sessions and reads snapshots", async () => {
   const store = createMemoryTrainingStore({ profile: { name: "A" }, preferences: { session_duration_min: 45 } });
@@ -124,6 +126,37 @@ test("completed sessions reject workout write events", async () => {
   assert.equal(after.events.length, before.events.length);
   assert.equal(after.active_version, before.active_version);
   assert.equal(after.exercises[0].name, "Row");
+});
+
+test("D1 session reads recover catalog images from the exercise name", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../../migrations/0001_training_domain.sql", import.meta.url), "utf8"));
+  sqlite.exec(await readFile(new URL("../../migrations/0002_exercise_catalog.sql", import.meta.url), "utf8"));
+  sqlite.exec(`
+    INSERT INTO profiles (id) VALUES ('alexandre');
+    INSERT INTO sessions (id, profile_id, title, status) VALUES ('session-images', 'alexandre', 'Image Test', 'active');
+    INSERT INTO session_exercises (id, session_id, position, exercise_id, name)
+      VALUES ('session-row', 'session-images', 0, 'session-local-row', 'Seated Cable Row');
+    INSERT INTO exercise_catalog (id, name, images_json)
+      VALUES ('Seated_Cable_Rows', 'Seated Cable Rows', '["Seated_Cable_Rows/0.jpg"]');
+  `);
+  const d1 = {
+    prepare(sql) {
+      const statement = sqlite.prepare(sql);
+      let bindings = [];
+      return {
+        bind(...values) { bindings = values; return this; },
+        async first() { return statement.get(...bindings) || null; },
+        async all() { return { results: statement.all(...bindings) }; },
+        async run() { statement.run(...bindings); return { success: true }; },
+      };
+    },
+  };
+
+  const session = await createD1TrainingStore(d1).getSession("session-images");
+  assert.equal(session.exercises[0].exercise_id, "session-local-row");
+  assert.deepEqual(session.exercises[0].images, ["Seated_Cable_Rows/0.jpg"]);
+  sqlite.close();
 });
 
 test("history listing exposes older profile sessions beyond recent context", async () => {

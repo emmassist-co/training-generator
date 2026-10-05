@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMemoryTrainingStore } from "../../src/db/training-store.mjs";
-import { renderHomePage } from "../../src/routes/home-page.mjs";
-import { renderHistoryPage } from "../../src/routes/history-page.mjs";
+import { renderHomePage } from "../../src/routes/HomePage.tsx";
+import { renderHistoryPage } from "../../src/routes/HistoryPage.tsx";
+import { renderChatPage } from "../../src/routes/ChatPage.tsx";
 import { renderSessionPage } from "../../src/routes/session-page.mjs";
 
 test("home summary prefers active session, then planned session, for one profile", async () => {
@@ -47,6 +48,17 @@ test("profile learning proposal changes context only after apply", async () => {
   await store.applyProfileUpdate({ profile_id: "alex", proposal_id: "learn-1" });
   context = await store.getTrainingContext({ profileId: "alex" });
   assert.deepEqual(context.planning_feedback_profile.summary_notes, ["Prefers shorter finishers."]);
+});
+
+test("hosted pages share the Flue editorial product system", () => {
+  const pages = [renderHomePage(), renderHistoryPage(), renderChatPage()];
+  for (const html of pages) {
+    assert.match(html, /aria-label="Flue"/);
+    assert.match(html, /Barlow Condensed/);
+    assert.match(html, /--accent:\s*#d9ff5a/);
+    assert.match(html, /--ground:\s*#10120f/);
+    assert.doesNotMatch(html, /radial-gradient|backdrop-filter|box-shadow:\s*0 24px/i);
+  }
 });
 
 test("hosted pages render home history, D1 replay, and pending proposals", () => {

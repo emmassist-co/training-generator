@@ -1,10 +1,18 @@
-# Live-session visual system
+# Flue visual system
 
-- **Status:** approved visual specification; mobile, desktop, and state references approved on 2026-10-04
+- **Status:** approved visual specification; mobile, desktop, and state references approved on 2026-10-04, extended product-wide on 2026-10-05
 - **Direction:** Editorial Performance (Direction A)
-- **Scope:** live training session only
+- **Scope:** all hosted Flue surfaces. The approved live-session references remain the visual source; route-specific layouts adapt the same system without copying the workout composition.
 - **Reference authority, in order after final approval:** `approved-mobile.png`, `approved-desktop.png`, `approved-states.png`; then the matching HTML for measured values; then `visual-brief.md` for behavior and accessibility constraints.
 - **Content authority:** the references approve composition and treatment, not their sample exercise, prescription, guidance, notes, or status text. Runtime data and the view model remain authoritative.
+
+### Product-wide surfaces
+
+- Home, coach, history, and live sessions share one Hono JSX shell, wordmark, self-hosted type, color tokens, hairlines, focus treatment, and navigation behavior.
+- Home uses exercise imagery as its main active-session field. It must keep a visible acid field and title if an image fails.
+- History is a ruled editorial archive, not a stack of cards. Coach is a task rail plus one conversation scroll owner and one composer.
+- Each route gets a distinct desktop and mobile composition. Do not stretch a phone layout or restore the former blue-card, mint-glass, gradient, pill, or broad-shadow treatments.
+- Page structure belongs in TSX components. Browser behavior belongs in separate client modules; do not add new full-document HTML template strings.
 
 ## 1. System signature
 

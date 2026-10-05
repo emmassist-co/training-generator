@@ -1,6 +1,5 @@
 import { deriveSessionLiveState } from "../db/training-store.mjs";
-
-export const EXERCISE_IMAGE_BASE = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
+import { firstExerciseImage } from "../media/exercise-images.mjs";
 
 const COMPACT_VALUE_LIMIT = 22;
 
@@ -85,13 +84,6 @@ export function prescriptionMetricItems(prescription = {}) {
   if (prescription.rest_seconds) metrics.push({ key: "rest", label: "Rest", value: `${prescription.rest_seconds}s`, icon: "⌁" });
   else if (prescription.rest) metrics.push({ key: "rest", label: "Rest", value: prescription.rest, icon: "⌁" });
   return metrics;
-}
-
-export function firstExerciseImage(exercise = {}) {
-  const image = exercise.images?.[0];
-  if (image) return image.startsWith("http") ? image : `${EXERCISE_IMAGE_BASE}${encodeURI(image)}`;
-  if (exercise.exercise_id) return `${EXERCISE_IMAGE_BASE}${encodeURIComponent(exercise.exercise_id)}/0.jpg`;
-  return null;
 }
 
 export function pendingSessionProposals(events = []) {
