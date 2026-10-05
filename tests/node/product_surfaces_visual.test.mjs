@@ -44,7 +44,14 @@ const homeFixture = {
     { id: "recent-2", title: "Lower return", status: "completed", summary: "6 movements", exercise_count: 6 },
   ],
 };
-const historyFixture = { sessions: [homeFixture.active_session, ...homeFixture.recent_sessions] };
+const longHistorySummary = "A very long training summary with repeated detail that must stay within the history row without widening the page or pushing metadata out of alignment. ".repeat(8) + "unbroken-detail-token-that-must-wrap-without-breaking-the-history-layout";
+const historyFixture = {
+  sessions: [
+    homeFixture.active_session,
+    { ...homeFixture.recent_sessions[0], summary: longHistorySummary },
+    homeFixture.recent_sessions[1],
+  ],
+};
 
 async function openFixture(browser, { html, pathname, viewport }) {
   const context = await browser.newContext({ viewport, colorScheme: "dark", reducedMotion: "reduce" });
@@ -127,6 +134,14 @@ test("home, history, and coach use the responsive Flue product shell with workin
           const image = await view.page.locator(".feature-media img").evaluate((node) => ({ complete: node.complete, width: node.naturalWidth, height: node.naturalHeight }));
           assert.equal(image.complete, true, `${fixture.label}: image completed`);
           assert.ok(image.width > 0 && image.height > 0, `${fixture.label}: exercise image decoded`);
+        }
+        if (fixture.pathname === "/history") {
+          const summary = await view.page.locator(".history-row .row-summary").first().evaluate((node) => {
+            const style = getComputedStyle(node);
+            return { width: node.scrollWidth - node.clientWidth, height: node.getBoundingClientRect().height, lineHeight: parseFloat(style.lineHeight) };
+          });
+          assert.ok(summary.width <= 1, `${fixture.label}: long summary remains within its column`);
+          assert.ok(summary.height <= summary.lineHeight * 2 + 1, `${fixture.label}: long summary is clamped to two lines`);
         }
         await capture(view.page, fixture.name);
       } finally {
