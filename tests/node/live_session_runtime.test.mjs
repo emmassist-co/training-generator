@@ -43,6 +43,106 @@ async function capturePost(page, predicate, action) {
   return { path: new URL(request.url()).pathname, body: requestBody(request) };
 }
 
+test("set logging exposes pending, blocks duplicates, and keeps values on failure", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+
+  let releaseRequest;
+  const release = new Promise((resolve) => { releaseRequest = resolve; });
+  const pendingCalls = [];
+  const pendingHtml = renderSessionPage({
+    id: "pending-session",
+    status: "active",
+    active_version: 2,
+    exercises: [{ id: "ex-1", name: "Cable Row", prescription: { sets: 3, reps: 10, rest_seconds: 2 } }],
+    events: [],
+  });
+  const pendingPage = await browser.newPage();
+  await pendingPage.route("**/*", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.resourceType() === "document") return route.fulfill({ status: 200, contentType: "text/html", body: pendingHtml });
+    if (path.endsWith("/events")) {
+      pendingCalls.push(requestBody(request));
+      await release;
+      return route.fulfill({ status: 201, contentType: "application/json", body: "{}" });
+    }
+    return route.abort();
+  });
+  await pendingPage.goto("http://localhost/sessions/pending-session");
+  const pendingButton = pendingPage.locator("[data-log-set]");
+  await pendingButton.click();
+  await pendingPage.waitForFunction(() => document.querySelector("[data-log-set]")?.getAttribute("aria-busy") === "true");
+  assert.equal(await pendingButton.isDisabled(), true);
+  assert.equal(await pendingPage.locator("[data-action-label]").textContent(), "Sending set…");
+  assert.equal(await pendingPage.locator("[data-set-feedback]").getAttribute("role"), "status");
+  await pendingButton.dispatchEvent("click");
+  assert.equal(pendingCalls.length, 1);
+  releaseRequest();
+  await pendingPage.waitForFunction(() => !document.querySelector("[data-log-set]")?.disabled);
+  assert.equal(pendingCalls.length, 1);
+  assert.equal(await pendingPage.locator("[data-timer-state]").textContent(), "Running");
+  assert.equal(await pendingPage.locator("[data-rest-row]").evaluate((node) => node.classList.contains("timer-active")), true);
+  await pendingPage.locator('[data-action="toggle-timer"]').click();
+  assert.equal(await pendingPage.locator("[data-timer-state]").textContent(), "Idle");
+  await pendingPage.locator('[data-action="toggle-timer"]').click();
+  await pendingPage.waitForTimeout(1100);
+  await pendingPage.locator('[data-action="toggle-timer"]').click();
+  assert.equal(await pendingPage.locator("[data-timer-state]").textContent(), "Paused");
+  await pendingPage.locator('[data-action="reset-timer"]').click();
+  assert.equal(await pendingPage.locator("[data-timer-state]").textContent(), "Idle");
+  assert.equal(await pendingPage.locator("[data-timer]").textContent(), "00:02");
+  await pendingPage.close();
+
+  const failedHtml = renderSessionPage({
+    id: "failed-session",
+    status: "active",
+    active_version: 2,
+    exercises: [{ id: "ex-1", name: "Cable Row", prescription: { sets: 3, reps: 10 } }],
+    events: [],
+  });
+  const failedPage = await browser.newPage();
+  await failedPage.route("**/*", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.resourceType() === "document") return route.fulfill({ status: 200, contentType: "text/html", body: failedHtml });
+    if (path.endsWith("/events")) return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ message: "Network error" }) });
+    return route.abort();
+  });
+  await failedPage.goto("http://localhost/sessions/failed-session");
+  await failedPage.locator("[data-reps]").fill("9");
+  await failedPage.locator("[data-load]").fill("47.5");
+  await failedPage.locator("[data-exercise-note]").fill("Grip slipped");
+  await failedPage.locator("[data-log-set]").click();
+  await failedPage.locator("[data-error]").waitFor({ state: "visible" });
+  assert.match(await failedPage.locator("[data-error]").textContent(), /Set not saved.*values are still here/i);
+  assert.equal(await failedPage.locator("[data-action-label]").textContent(), "Try log set again");
+  assert.equal(await failedPage.locator("[data-reps]").inputValue(), "9");
+  assert.equal(await failedPage.locator("[data-load]").inputValue(), "47.5");
+  assert.equal(await failedPage.locator("[data-exercise-note]").inputValue(), "Grip slipped");
+  assert.equal(await failedPage.locator("[data-log-set]").isDisabled(), false);
+});
+
+test("completed session keeps review navigation usable without write requests", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const calls = [];
+  const page = await openInterceptedPage(browser, renderSessionPage({
+    id: "completed-session",
+    status: "completed",
+    active_version: 5,
+    exercises: [
+      { id: "ex-1", name: "Row", prescription: { sets: 2, reps: 8 } },
+      { id: "ex-2", name: "Press", prescription: { sets: 2, reps: 8 } },
+    ],
+    events: [],
+  }), calls);
+  assert.equal(await page.locator("#nextExercise").isDisabled(), false);
+  await page.locator("#nextExercise").click();
+  assert.equal(await page.locator('[data-exercise-id="ex-2"]').evaluate((node) => node.classList.contains("is-active")), true);
+  assert.equal(calls.length, 0);
+});
+
 test("live session browser runtime keeps write routes and structured payloads", async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
@@ -55,7 +155,7 @@ test("live session browser runtime keeps write routes and structured payloads", 
     exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 3, reps: 10 } }],
     events: [],
   }), startCalls);
-  await plannedPage.waitForFunction(() => document.querySelector("#statusPill")?.textContent === "active");
+  await plannedPage.waitForFunction(() => document.querySelector("#statusPill")?.textContent === "Live");
   assert.deepEqual(startCalls[0], {
     path: "/api/sessions/runtime-session/start",
     body: { idempotency_key: "start:runtime-session" },
@@ -112,8 +212,8 @@ test("live session browser runtime keeps write routes and structured payloads", 
   }), actionCalls);
   const actionCard = actionPage.locator('[data-exercise-id="ex-1"]');
 
-  const doneRequest = await capturePost(actionPage, (path, body) => path.endsWith("/events") && body.type === "exercise_completion_updated", () => actionCard.locator("[data-done]").click());
-  await actionPage.waitForFunction(() => !document.querySelector('[data-exercise-id="ex-1"] [data-done]')?.disabled);
+  const doneRequest = await capturePost(actionPage, (path, body) => path.endsWith("/events") && body.type === "exercise_completion_updated", () => actionPage.locator('[data-context-index="0"] [data-done]').click());
+  await actionPage.waitForFunction(() => !document.querySelector('[data-context-index="0"] [data-done]')?.disabled);
   assert.deepEqual(doneRequest.body.payload, { session_exercise_id: "ex-1", completed: true, completed_ids: ["ex-1"] });
   assert.equal(doneRequest.body.version, 7);
 
@@ -153,4 +253,9 @@ test("live session browser runtime keeps write routes and structured payloads", 
   assert.deepEqual(completeRequest.body.completion.notes, "Completion note");
   assert.deepEqual(completeRequest.body.completion.completed_exercise_ids, []);
   assert.match(completeRequest.body.completion.completed_at, /^\d{4}-\d{2}-\d{2}T/);
+  await completionPage.waitForFunction(() => document.querySelector("#statusPill")?.textContent === "Completed");
+  assert.equal(await completionPage.locator("[data-exercise-note]").isDisabled(), true);
+  assert.equal(await completionPage.locator("#notes").isDisabled(), true);
+  assert.equal(await completionPage.locator("#complete").isDisabled(), true);
+  assert.equal(await completionPage.locator("#nextExercise").isDisabled(), true);
 });

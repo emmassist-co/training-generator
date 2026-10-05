@@ -52,6 +52,7 @@ test("live session view model derives replayed state and media safely", () => {
   assert.equal(model.exercises[0].current_set.number, 2);
   assert.equal(model.exercises[0].current_set.total, 3);
   assert.equal(model.exercises[0].current_set.label, "Set 2 of 3");
+  assert.equal(model.exercises[0].current_set.position_label, "Set 2 of 3");
   assert.equal(model.exercises[0].current_set.primary_action_label, "Log set");
   assert.equal(model.exercises[0].current_set.planned_set_total, 3);
   assert.equal(model.exercises[0].current_set.target_reps, 10);
@@ -92,7 +93,8 @@ test("live session view model treats planned set count as fixed", () => {
 
   assert.equal(model.exercises[0].current_set.total, 2);
   assert.equal(model.exercises[0].current_set.is_complete, true);
-  assert.equal(model.exercises[0].current_set.label, "All 2 sets logged");
+  assert.equal(model.exercises[0].current_set.label, "Extra set");
+  assert.equal(model.exercises[0].current_set.position_label, "All 2 logged");
   assert.equal(model.exercises[0].current_set.primary_action_label, "Add extra set");
 });
 
@@ -111,7 +113,8 @@ test("live session view model preserves fixed planned total after extra sets", (
 
   assert.equal(model.exercises[0].current_set.total, 3);
   assert.equal(model.exercises[0].current_set.planned_set_total, 3);
-  assert.equal(model.exercises[0].current_set.label, "All 3 sets logged");
+  assert.equal(model.exercises[0].current_set.label, "Extra set");
+  assert.equal(model.exercises[0].current_set.position_label, "All 3 logged");
   assert.equal(model.exercises[0].current_set.primary_action_label, "Add extra set");
 });
 
@@ -125,5 +128,6 @@ test("live session view model falls back to unbounded sets without prescribed co
 
   assert.equal(model.exercises[0].current_set.total, null);
   assert.equal(model.exercises[0].current_set.label, "Set 2");
+  assert.equal(model.exercises[0].current_set.position_label, "Set 2");
   assert.equal(model.exercises[0].current_set.primary_action_label, "Log set");
 });

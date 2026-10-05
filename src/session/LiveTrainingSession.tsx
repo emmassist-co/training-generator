@@ -15,160 +15,216 @@ export function renderLiveSessionPage(session: unknown) {
 }
 
 function LiveTrainingSessionDocument({ model }: { model: LiveSessionModel }) {
-  const title = model.session.title;
   return (
     <html lang="en">
       <head>
         <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>{title}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <meta name="theme-color" content="#10120f" />
+        <title>{model.session.title}</title>
+        <link rel="preload" href="/fonts/barlow-condensed-700.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         <style dangerouslySetInnerHTML={{ __html: LIVE_SESSION_CSS }} />
       </head>
       <body>
-        <main>
-          <Hero model={model} />
-          <section class="exercise-stage" id="exerciseStage" aria-live="polite">
-            {model.exercises.length ? model.exercises.map((exercise, index) => <ExerciseCard exercise={exercise} index={index} model={model} />) : <EmptySession model={model} />}
-          </section>
-          <ProposalPanel model={model} />
-          <SessionNotes model={model} />
+        <main class="session-shell">
+          <Masthead model={model} />
+          <div class="workspace-scroll">
+            <RoutePanel model={model} />
+            <section class="exercise-stage" id="exerciseStage" aria-label="Current exercise">
+              {model.exercises.length
+                ? model.exercises.map((exercise, index) => <ExerciseWork exercise={exercise} index={index} model={model} />)
+                : <EmptySession model={model} />}
+            </section>
+            <aside class="context-column" aria-label="Training details">
+              {model.exercises.map((exercise, index) => <ExerciseContext exercise={exercise} index={index} model={model} />)}
+              <ProposalPanel model={model} />
+              <SessionNotes model={model} />
+            </aside>
+          </div>
+          <BottomBar model={model} />
         </main>
-        <BottomBar model={model} />
       </body>
     </html>
   );
 }
 
-function Hero({ model }: { model: LiveSessionModel }) {
+function Wordmark() {
+  return <span class="wordmark" aria-label="Flue"><span aria-hidden="true">FLU</span><span class="wordmark-e" aria-hidden="true">E</span></span>;
+}
+
+function Masthead({ model }: { model: LiveSessionModel }) {
   const session = model.session;
-  const count = model.progress.exercise_count || 1;
   return (
-    <header class="hero session-status-bar">
-      <div class="topline">
-        <div class="eyebrow">Live training session</div>
-        <div class="hero-actions">
-          <a class="coach-link" href={`/chat?profile_id=${encodeURIComponent(session.profile_id)}&session_id=${encodeURIComponent(String(session.id))}`}>Ask coach</a>
-        </div>
+    <header class="masthead session-status-bar">
+      <Wordmark />
+      <div class="session-heading">
+        <h1>{session.title}</h1>
+        <span>{model.progress.exercise_count} movements</span>
       </div>
-      <h1>{session.title}</h1>
-      <div class="summary">{session.summary}</div>
-      <div class="session-stats">
-        <span class="pill">{session.profile_id}</span>
-        <span class="pill" id="statusPill">{session.status}</span>
-        <span class="pill"><span id="completedCount">{model.progress.completed_count}</span>/{model.progress.exercise_count} done</span>
-        <span class="pill" id="elapsedPill">00:00 elapsed</span>
-        {session.is_completed ? <span class="pill readonly">completed sessions are read-only</span> : null}
-      </div>
-      <div class="progress-shell">
-        <div class="progress-row"><span id="progressLabel">Exercise 1 of {count}</span><span id="progressPercent">0%</span></div>
-        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class={`live-state ${session.is_completed ? "is-complete" : ""}`}>
+        <span class="state-mark" aria-hidden="true"></span>
+        <span id="statusPill">{session.is_completed ? "Completed" : session.status === "planned" ? "Starting" : "Live"}</span>
+        <span aria-hidden="true">·</span>
+        <span id="elapsedPill">00:00</span>
       </div>
     </header>
   );
 }
 
-function ExerciseCard({ exercise, index, model }: { exercise: LiveExercise; index: number; model: LiveSessionModel }) {
-  const isCompleted = model.session.is_completed;
-  const doneText = exercise.is_done ? "Done" : "Mark done";
-  const actionKey = `set:${exercise.id}`;
+function RoutePanel({ model }: { model: LiveSessionModel }) {
+  const total = model.progress.exercise_count;
+  return (
+    <aside class="route-panel" aria-label="Workout route">
+      <div class="route-summary">
+        <span class="micro-label">Workout route</span>
+        <div><strong id="progressLabel">{total ? `01 / ${String(total).padStart(2, "0")}` : "00 / 00"}</strong><span id="progressPercent">0% through</span></div>
+        <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+        <span class="sr-only"><span id="completedCount">{model.progress.completed_count}</span> exercises complete</span>
+      </div>
+      <ol class="route-list">
+        {model.exercises.map((exercise, index) => (
+          <li class={index === 0 ? "is-current" : ""} data-route-item={index}>
+            <button type="button" data-exercise-jump={index} aria-label={`Review ${exercise.name}`}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{exercise.name}</strong>
+              <small>{exercise.current_set.total ? `${exercise.current_set.total} sets` : exercise.prescription_text}</small>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </aside>
+  );
+}
+
+function ExerciseWork({ exercise, index, model }: { exercise: LiveExercise; index: number; model: LiveSessionModel }) {
   return (
     <article class={`exercise-card ${index === 0 ? "is-active" : ""} ${exercise.is_done ? "done" : ""}`} data-index={index} data-exercise-id={exercise.id}>
-      <div class="exercise-copy">
-        <div class="exercise-context">
-          <div class="exercise-kicker">Exercise {index + 1} of {model.exercises.length}</div>
-          <h2>{exercise.name}</h2>
-          <div class="rx">{exercise.prescription_text}</div>
-        </div>
-        <section class="set-console" aria-label={`Log a set for ${exercise.name}`}>
-          <div class="set-header">
-            <div>
-              <div class="metric-label">Current set</div>
-              <strong class="current-set-label" data-current-set-label data-set-total={exercise.current_set.total || undefined}>{exercise.current_set.label}</strong>
-              <div class="set-help">Log this set with the reps and load you actually did.</div>
-            </div>
-            <span class="set-count"><span data-set-count>{exercise.logged_set_count}</span> saved</span>
-          </div>
-          <div class="field-grid fast-fields">
-            <label class="field">Reps done<input class="set-input" inputmode="decimal" data-reps placeholder="reps" value={exercise.input_reps} disabled={isCompleted || undefined} /></label>
-            <label class="field">Load used<input class="set-input" inputmode="decimal" data-load placeholder="kg / lb / band" value={exercise.input_load} disabled={isCompleted || undefined} /></label>
-          </div>
-          <textarea class="exercise-note" data-exercise-note placeholder="Optional note: machine, pain, form cue…" readonly={isCompleted || undefined}></textarea>
-          <div class="action-error" data-error role="status" aria-live="polite"></div>
-          <div class="button-row set-actions"><button type="button" data-log-set data-action-key={actionKey} disabled={isCompleted || undefined}>{exercise.current_set.primary_action_label}</button><button type="button" class="secondary" data-done data-completed={exercise.is_done ? "true" : undefined} disabled={isCompleted || undefined}>{doneText}</button></div>
-          <div class="timer-row rest-row" data-rest-row>
-            <div><div class="metric-label">Rest timer</div><div class="timer-time" data-timer>00:00</div></div>
-            <div class="button-row"><button type="button" class="secondary" data-action="toggle-timer" data-index={index} disabled={isCompleted || undefined}>Start timer</button><button type="button" class="ghost" data-action="reset-timer" data-index={index} disabled={isCompleted || undefined}>Reset</button></div>
-          </div>
-          <SavedSets exercise={exercise} />
-        </section>
-        <MetricStrip metrics={exercise.metrics} />
-        <PrescriptionNotes note={exercise.plan_note} />
-        <DetailsPanel exercise={exercise} />
-      </div>
+      <div class="exercise-position"><span>Exercise {index + 1}/{model.exercises.length}</span><strong data-position-label>{exercise.current_set.position_label}</strong></div>
+      <ExerciseMedia exercise={exercise} eager={index === 0} />
+      <MetricStrip metrics={exercise.metrics} variant="mobile" />
+      <SetConsole exercise={exercise} index={index} isCompleted={model.session.is_completed} />
     </article>
+  );
+}
+
+function SetConsole({ exercise, index, isCompleted }: { exercise: LiveExercise; index: number; isCompleted: boolean }) {
+  const actionKey = `set:${exercise.id}`;
+  const latestSet = exercise.saved_sets?.at(-1);
+  return (
+    <section class={`set-console ${isCompleted ? "is-readonly" : ""}`} aria-label={isCompleted ? `Set history for ${exercise.name}` : `Log a set for ${exercise.name}`}>
+      <div class="set-header">
+        <div>
+          <span class="micro-label">{isCompleted ? "Set history" : "Current set"}</span>
+          <strong class="current-set-label" data-current-set-label data-set-total={exercise.current_set.total || undefined}>{isCompleted ? "Set history" : exercise.current_set.label}</strong>
+        </div>
+        <span class="set-help">{isCompleted ? "Read-only" : exercise.current_set.is_complete ? "Planned work complete" : "Adjust after the set"}</span>
+      </div>
+      {isCompleted ? (
+        <div class="readonly-values">
+          <div><span class="metric-label">Last reps</span><strong data-reps>{latestSet?.reps || "—"}</strong><span class="lock-mark" aria-label="Read-only">■</span></div>
+          <div><span class="metric-label">Last load</span><strong data-load>{latestSet?.load || "—"}</strong><span class="lock-mark" aria-label="Read-only">■</span></div>
+        </div>
+      ) : (
+        <div class="field-grid fast-fields">
+          <div class="value-field">
+            <label for={`reps-${index}`}>Actual reps</label>
+            <div><input id={`reps-${index}`} class="set-input" inputmode="decimal" data-reps aria-label="Actual reps" value={exercise.input_reps} /><Stepper field="reps" /></div>
+          </div>
+          <div class="value-field">
+            <label for={`load-${index}`}>Actual load</label>
+            <div><input id={`load-${index}`} class="set-input" inputmode="decimal" data-load aria-label="Actual load" value={exercise.input_load} /><Stepper field="load" /></div>
+          </div>
+        </div>
+      )}
+      <label class="note-field">
+        <span>{isCompleted ? "Saved note" : "Set note (optional)"}</span>
+        {isCompleted
+          ? <output data-exercise-note>{latestSet?.note || "No note saved"}</output>
+          : <textarea class="exercise-note" data-exercise-note placeholder="Form, pain, or adjustment…"></textarea>}
+      </label>
+      {!isCompleted ? (
+        <>
+          <button type="button" class="log-set" data-log-set data-action-key={actionKey} aria-describedby={`set-feedback-${index}`}>
+            <span data-action-label>{exercise.current_set.primary_action_label}</span><span data-action-suffix>{String(exercise.logged_set_count + 1).padStart(2, "0")} →</span>
+          </button>
+          <div class="pending-line" data-pending-line aria-hidden="true"><span></span></div>
+          <div class="action-error" data-error role="alert" aria-live="assertive" hidden></div>
+        </>
+      ) : null}
+      <div class="set-feedback-row">
+        <div class="set-feedback" id={`set-feedback-${index}`} data-set-feedback role="status" aria-live="polite">
+          <span class="diamond-check" aria-hidden="true">✓</span>
+          <span><strong>{latestSet ? `Set ${exercise.logged_set_count} saved` : "Session saved"}</strong><small>{latestSet ? `${latestSet.reps || "—"} reps${latestSet.load ? ` · ${latestSet.load}` : ""}` : "No sets logged yet"}</small></span>
+        </div>
+        <RestTimer exercise={exercise} index={index} isCompleted={isCompleted} />
+      </div>
+      <SavedSets exercise={exercise} />
+      {isCompleted ? <div class="readonly-callout"><span class="diamond-check" aria-hidden="true">✓</span><span><strong>Session completed · Read-only</strong><small>Set, note, timer, and completion changes are unavailable.</small></span></div> : null}
+    </section>
+  );
+}
+
+function Stepper({ field }: { field: "reps" | "load" }) {
+  return <span class="stepper"><button type="button" data-step-field={field} data-step="up" aria-label={`Increase ${field}`}>+</button><button type="button" data-step-field={field} data-step="down" aria-label={`Decrease ${field}`}>−</button></span>;
+}
+
+function RestTimer({ exercise, index, isCompleted }: { exercise: LiveExercise; index: number; isCompleted: boolean }) {
+  const seconds = Number(exercise.current_set.target_rest_seconds || 0);
+  const formatted = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  return (
+    <div class="timer-row rest-row" data-rest-row data-rest-seconds={seconds}>
+      <span><span class="metric-label">Rest <em data-timer-state>{isCompleted ? "Read-only" : "Idle"}</em></span><strong class="timer-time" data-timer>{formatted}</strong></span>
+      {!isCompleted ? <span class="timer-actions"><button type="button" data-write-control data-action="toggle-timer" data-index={index}>Start rest</button><button type="button" data-write-control data-action="reset-timer" data-index={index}>Reset</button></span> : <span class="lock-mark" aria-label="Read-only">■</span>}
+    </div>
   );
 }
 
 function EmptySession({ model }: { model: LiveSessionModel }) {
   return (
-    <article class="exercise-card empty-session is-active">
-      <div class="exercise-copy">
-        <div class="exercise-kicker">Session setup</div>
-        <h2>No exercises in this session yet</h2>
-        <p class="why">Ask the coach to build or repair this session before training.</p>
-        <a class="coach-link" href={`/chat?profile_id=${encodeURIComponent(model.session.profile_id)}&session_id=${encodeURIComponent(String(model.session.id))}`}>Ask coach</a>
-      </div>
+    <article class="empty-session is-active">
+      <span class="micro-label">Session setup</span>
+      <h2>No exercises in this session yet</h2>
+      <p>Ask the coach to build or repair this session before training.</p>
+      <a class="text-link" href={`/chat?profile_id=${encodeURIComponent(model.session.profile_id)}&session_id=${encodeURIComponent(String(model.session.id))}`}>Ask coach →</a>
     </article>
   );
 }
 
 function SavedSets({ exercise }: { exercise: LiveExercise }) {
-  if (!exercise.saved_sets?.length) return null;
-  return <div class="saved-sets" aria-label="Saved sets">{exercise.saved_sets.map((set) => <span>{set.label}: {set.reps || "—"} reps{set.load ? ` · ${set.load}` : ""}</span>)}</div>;
+  const count = <span data-set-count hidden>{exercise.logged_set_count}</span>;
+  if (!exercise.saved_sets?.length) return <div class="saved-sets empty">{count}No sets logged yet</div>;
+  return <div class="saved-sets" aria-label="Saved sets">{count}<span class="metric-label">Saved sets</span>{exercise.saved_sets.map((set, index) => <span><b>{String(index + 1).padStart(2, "0")}</b> {set.reps || "—"}×{set.load || "—"}</span>)}</div>;
 }
 
-function PrescriptionNotes({ note }: { note?: { compact?: string; full?: string } }) {
-  if (!note?.compact) return null;
-  return <details class="prescription-note"><summary><strong>Plan note</strong><span>{note.compact}</span></summary>{note.full ? <p>{note.full}</p> : null}</details>;
+function MetricStrip({ metrics, variant }: { metrics: LiveMetric[]; variant: "mobile" | "context" }) {
+  if (!metrics.length) return <div class={`metric-strip ${variant} empty`}>Prescription details unavailable</div>;
+  return <div class={`metric-strip ${variant}`} aria-label="Prescription">{metrics.filter((metric) => metric.key !== "sets").map((metric) => <div data-metric={metric.key}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>;
 }
 
-function MetricStrip({ metrics }: { metrics: LiveMetric[] }) {
-  if (!metrics.length) return <div class="metric-strip empty">Prescription details unavailable</div>;
+function ExerciseContext({ exercise, index, model }: { exercise: LiveExercise; index: number; model: LiveSessionModel }) {
   return (
-    <div class="metric-strip">
-      {metrics.map((metric) => (
-        <div class="metric-card" data-metric={metric.key}>
-          <span class="metric-icon" aria-hidden="true">{metric.icon}</span>
-          <span class="metric-label">{metric.label}</span>
-          <strong>{metric.value}</strong>
-        </div>
-      ))}
-    </div>
+    <section class={`context-region ${index === 0 ? "is-active" : ""}`} data-context-index={index}>
+      <section class="context-section prescription-section">
+        <header><h2>Prescription</h2><span>Set {String(Math.min(exercise.logged_set_count + 1, exercise.current_set.total || exercise.logged_set_count + 1)).padStart(2, "0")}</span></header>
+        <MetricStrip metrics={exercise.metrics} variant="context" />
+        {exercise.plan_note?.full ? <p class="plan-copy">{exercise.plan_note.full}</p> : null}
+      </section>
+      {exercise.has_optional_details ? <section class="context-section details-panel"><header><h2>Details</h2><span>Form</span></header>{exercise.rationale ? <p>{exercise.rationale}</p> : null}<Alternatives exercise={exercise} /></section> : null}
+      {!model.session.is_completed ? <button type="button" class="movement-done" data-write-control data-done data-completed={exercise.is_done ? "true" : undefined}>{exercise.is_done ? "Movement complete ✓" : "Mark movement done"}</button> : null}
+      <a class="text-link coach-link" href={`/chat?profile_id=${encodeURIComponent(model.session.profile_id)}&session_id=${encodeURIComponent(String(model.session.id))}`}>Ask coach →</a>
+    </section>
   );
 }
 
-function DetailsPanel({ exercise }: { exercise: LiveExercise }) {
-  if (!exercise.has_optional_details) return null;
-  return (
-    <details class="details-panel">
-      <summary>Form, media, and swaps</summary>
-      {exercise.rationale ? <div class="why">{exercise.rationale}</div> : null}
-      <ExerciseMedia exercise={exercise} />
-      <Alternatives exercise={exercise} />
-    </details>
-  );
-}
-
-function ExerciseMedia({ exercise }: { exercise: LiveExercise }) {
+function ExerciseMedia({ exercise, eager }: { exercise: LiveExercise; eager: boolean }) {
   const media = exercise.media;
-  if (!media.image) {
-    return <div class="exercise-media fallback" role="img" aria-label={`${exercise.name} illustration`}><span aria-hidden="true">{media.fallback_letter}</span></div>;
-  }
   return (
-    <figure class="exercise-media">
-      <img src={media.image} alt={`${exercise.name} exercise photo`} loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('fallback'); this.remove();" />
-      <span class="fallback-letter" aria-hidden="true">{media.fallback_letter}</span>
-      <figcaption>{media.caption}</figcaption>
+    <figure class={`exercise-media ${media.image ? "" : "fallback"}`}>
+      {media.image ? <img src={media.image} alt={`${exercise.name} exercise photo`} loading={eager ? "eager" : "lazy"} decoding="async" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('fallback'); this.remove();" /> : null}
+      <div class="media-fallback"><span aria-hidden="true">{media.fallback_letter}</span><strong>Image unavailable</strong></div>
+      <div class="image-screen" aria-hidden="true"></div>
+      <h2>{exercise.name}</h2>
+      <figcaption><span>Movement {String(exercise.index + 1).padStart(2, "0")}</span><strong>{media.caption}</strong></figcaption>
     </figure>
   );
 }
@@ -181,15 +237,9 @@ function Alternatives({ exercise }: { exercise: LiveExercise }) {
 function ProposalPanel({ model }: { model: LiveSessionModel }) {
   if (!model.proposals.length) return null;
   return (
-    <section class="panel" id="proposalPanel">
-      <strong>Pending coach changes</strong>
-      {model.proposals.map((proposal) => (
-        <article class="proposal" data-proposal-id={proposal.id}>
-          <p>{proposal.reason || "Review this proposed session change."}</p>
-          <pre>{JSON.stringify(proposal.patch, null, 2)}</pre>
-          {model.session.is_completed ? null : <div class="button-row"><button type="button" data-apply-proposal>Apply change</button><button type="button" class="secondary" data-reject-proposal>Reject</button></div>}
-        </article>
-      ))}
+    <section class="context-section proposal-panel" id="proposalPanel">
+      <header><h2>Pending coach changes</h2><span>{String(model.proposals.length).padStart(2, "0")}</span></header>
+      {model.proposals.map((proposal) => <article class="proposal" data-proposal-id={proposal.id}><p>{proposal.reason || "Review this proposed session change."}</p><pre>{JSON.stringify(proposal.patch, null, 2)}</pre>{model.session.is_completed ? null : <div class="proposal-actions"><button type="button" data-write-control data-apply-proposal>Apply change</button><button type="button" data-write-control data-reject-proposal>Reject</button></div>}</article>)}
     </section>
   );
 }
@@ -197,26 +247,23 @@ function ProposalPanel({ model }: { model: LiveSessionModel }) {
 function SessionNotes({ model }: { model: LiveSessionModel }) {
   const isCompleted = model.session.is_completed;
   return (
-    <section class="panel">
-      <label for="notes"><strong>Session notes</strong></label>
-      <textarea class="session-note" id="notes" placeholder="Pain, machine swaps, loads used, how it felt…" readonly={isCompleted || undefined}>{model.notes.latest}</textarea>
-      <div class="actions">
-        <span class="toast" id="toast">Ready</span>
-        <div class="button-row">
-          {isCompleted ? null : <><button type="button" class="secondary" data-effort="too_easy">Too easy</button><button type="button" class="secondary" data-effort="too_hard">Too hard</button><button type="button" class="danger" data-effort="pain">Pain</button><button type="button" class="secondary" id="saveNote">Save note</button><button type="button" id="complete">Complete session</button></>}
-        </div>
-      </div>
+    <section class="context-section session-finish">
+      <header><h2>Session finish</h2></header>
+      {!isCompleted ? <><span class="micro-label">Effort check</span><div class="effort-actions"><button type="button" data-write-control data-effort="too_easy" aria-pressed="false">Too easy</button><button type="button" data-write-control data-effort="too_hard" aria-pressed="false">Too hard</button><button type="button" data-write-control data-effort="pain" aria-pressed="false">Pain</button></div></> : null}
+      <label class="session-note-field" for="notes"><span>Session notes</span><textarea class="session-note" id="notes" placeholder="Pain, swaps, loads, how it felt…" readonly={isCompleted || undefined}>{model.notes.latest}</textarea></label>
+      <span class="toast" id="toast" role="status" aria-live="polite">{isCompleted ? "Session completed · Read-only" : "Ready"}</span>
+      {!isCompleted ? <div class="finish-actions"><button type="button" data-write-control id="saveNote">Save note</button><button type="button" data-write-control id="complete">Complete session <span>→</span></button></div> : <div class="readonly-callout compact"><span class="diamond-check" aria-hidden="true">✓</span><span><strong>Session completed · Read-only</strong><small>Review remains available.</small></span></div>}
     </section>
   );
 }
 
 function BottomBar({ model }: { model: LiveSessionModel }) {
-  const isCompleted = model.session.is_completed;
+  const hasExercises = model.exercises.length > 0;
   return (
-    <nav class="bottom-bar" aria-label="Workout navigation">
-      <button type="button" class="secondary" id="prevExercise">Back</button>
-      <div class="bottom-title"><strong id="bottomExerciseName">{model.exercises[0]?.name || "Training"}</strong><span id="bottomStatus">Ready</span></div>
-      <div class="bottom-actions"><button type="button" class="secondary" id="nextExercise" disabled={isCompleted || !model.exercises.length || undefined}>Next</button><button type="button" id="bottomDone" disabled={isCompleted || !model.exercises.length || undefined}>Done + next</button></div>
+    <nav class="bottom-bar" aria-label={model.session.is_completed ? "Review exercise" : "Exercise navigation"}>
+      <button type="button" id="prevExercise" aria-label="Previous exercise" disabled={!hasExercises || undefined}>←</button>
+      <div class="bottom-title"><span>{model.session.is_completed ? "Review exercise" : "Session route"}</span><strong id="bottomExerciseName">{hasExercises ? `01 / ${String(model.exercises.length).padStart(2, "0")}` : "00 / 00"}</strong><small id="bottomStatus">{model.session.is_completed ? "Read-only" : "Ready"}</small></div>
+      <button type="button" id="nextExercise" aria-label="Next exercise" disabled={!hasExercises || undefined}>→</button>
     </nav>
   );
 }
