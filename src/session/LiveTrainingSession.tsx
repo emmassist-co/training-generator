@@ -128,7 +128,7 @@ function SetConsole({ exercise, index, isCompleted }: { exercise: LiveExercise; 
         <div class="field-grid fast-fields">
           <div class="value-field">
             <label for={`reps-${index}`}>Actual reps</label>
-            <div><input id={`reps-${index}`} class="set-input" inputmode="decimal" data-reps aria-label="Actual reps" value={exercise.input_reps} /><Stepper field="reps" /></div>
+            <div><input id={`reps-${index}`} class={`set-input ${String(exercise.input_reps || "").length > 7 ? "has-long-value" : ""}`} inputmode="decimal" data-reps aria-label="Actual reps" value={exercise.input_reps} /><Stepper field="reps" /></div>
           </div>
           <div class="value-field">
             <label for={`load-${index}`}>Actual load</label>
@@ -197,8 +197,9 @@ function SavedSets({ exercise }: { exercise: LiveExercise }) {
 }
 
 function MetricStrip({ metrics, variant }: { metrics: LiveMetric[]; variant: "mobile" | "context" }) {
-  if (!metrics.length) return <div class={`metric-strip ${variant} empty`}>Prescription details unavailable</div>;
-  return <div class={`metric-strip ${variant}`} aria-label="Prescription">{metrics.filter((metric) => metric.key !== "sets").map((metric) => <div data-metric={metric.key}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>;
+  const visibleMetrics = metrics.filter((metric) => metric.key !== "sets");
+  if (!visibleMetrics.length) return <div class={`metric-strip ${variant} empty`}>Prescription details unavailable</div>;
+  return <div class={`metric-strip ${variant}`} data-metric-count={visibleMetrics.length} aria-label="Prescription">{visibleMetrics.map((metric) => <div data-metric={metric.key}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>;
 }
 
 function ExerciseContext({ exercise, index, model }: { exercise: LiveExercise; index: number; model: LiveSessionModel }) {
@@ -219,7 +220,7 @@ function ExerciseContext({ exercise, index, model }: { exercise: LiveExercise; i
 function ExerciseMedia({ exercise, eager }: { exercise: LiveExercise; eager: boolean }) {
   const media = exercise.media;
   return (
-    <figure class={`exercise-media ${media.image ? "" : "fallback"}`}>
+    <figure class={`exercise-media ${media.image ? "" : "fallback"} ${exercise.name.length > 24 ? "long-title" : ""}`}>
       {media.image ? <img src={media.image} alt={`${exercise.name} exercise photo`} loading={eager ? "eager" : "lazy"} decoding="async" referrerpolicy="no-referrer" onerror="this.closest('figure').classList.add('fallback'); this.remove();" /> : null}
       <div class="media-fallback"><span aria-hidden="true">{media.fallback_letter}</span><strong>Image unavailable</strong></div>
       <div class="image-screen" aria-hidden="true"></div>

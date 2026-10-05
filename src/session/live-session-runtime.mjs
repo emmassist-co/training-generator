@@ -55,7 +55,8 @@ export function renderLiveSessionRuntime(runtimeData) {
       const error = card?.querySelector('[data-error]');
       if (!error) return;
       error.hidden = !text;
-      error.textContent = text ? 'Set not saved. ' + text + ' Your values are still here.' : '';
+      const detail = text && /[.!?]$/.test(text) ? text : text + '.';
+      error.textContent = text ? 'Set not saved. ' + detail + ' Your values are still here.' : '';
     }
     function setFeedback(card, title, detail) {
       const feedback = card?.querySelector('[data-set-feedback]');
