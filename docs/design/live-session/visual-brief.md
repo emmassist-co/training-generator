@@ -1,8 +1,16 @@
 # Flue live-session visual brief
 
-**Status:** behavior baseline recorded; visual direction not yet approved  
-**Scope:** live training session only  
-**Next gate:** produce two materially distinct 390×844 concepts and ask the user to select one direction or a named hybrid. Do not treat this brief as approval to change production UI.
+- **Status:** Editorial Performance direction approved
+- **Scope:** live training session only
+- **Approved direction:** Direction A, including its prominent acid-lime exercise-image treatment and polished 20px/4px/8px spacing system
+- **Approval record:** The user selected Direction A over Direction B, required imagery to become central to the look, requested a spacing/alignment pass, and then approved the polished mobile reference on 2026-10-04.
+- **Next gate:** produce and approve the final desktop composition and required state references before changing production UI.
+
+## Selected visual direction
+
+Editorial Performance is the governing direction. It uses condensed athletic typography, near-black editorial space, bone-white type, a narrow acid-lime semantic accent, hairline structure, and an art-directed exercise image plate. Exercise imagery is a core brand element, not a secondary thumbnail: each exercise receives a prominent, repeatable crop and treatment while the current-set logger remains the primary task.
+
+Direction B remains a rejected exploration and must not be blended into implementation unless the user later changes this decision.
 
 ## Audience and setting
 
