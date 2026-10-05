@@ -162,6 +162,56 @@ test("completion stops and remains editable when the structured note write fails
   assert.equal(await page.locator("#statusPill").textContent(), "Live");
 });
 
+test("completion coalesces an in-flight note save and retries without duplicate notes", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const html = renderSessionPage({
+    id: "completion-race-session",
+    status: "active",
+    active_version: 2,
+    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 2, reps: 8 } }],
+    events: [],
+  });
+  let releaseNote;
+  const noteGate = new Promise((resolve) => { releaseNote = resolve; });
+  let noteCalls = 0;
+  let completeCalls = 0;
+  const page = await browser.newPage();
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.resourceType() === "document") return route.fulfill({ status: 200, contentType: "text/html", body: html });
+    if (path.endsWith("/events") && requestBody(request).type === "note_added") {
+      noteCalls += 1;
+      await noteGate;
+      return route.fulfill({ status: 201, contentType: "application/json", body: "{}" });
+    }
+    if (path.endsWith("/complete")) {
+      completeCalls += 1;
+      return route.fulfill({
+        status: completeCalls === 1 ? 500 : 200,
+        contentType: "application/json",
+        body: JSON.stringify(completeCalls === 1 ? { message: "Completion save failed" } : { status: "completed" }),
+      });
+    }
+    if (path.startsWith("/api/")) return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    return route.abort();
+  });
+  await page.goto("http://localhost/sessions/completion-race-session");
+  await page.locator("#notes").fill("One durable note");
+  await page.locator("#saveNote").click();
+  await page.waitForFunction(() => document.querySelector("#saveNote")?.getAttribute("aria-busy") === "true");
+  await page.locator("#complete").click();
+  releaseNote();
+  await page.waitForFunction(() => document.querySelector("#toast")?.textContent === "Completion save failed");
+  assert.equal(noteCalls, 1);
+  assert.equal(completeCalls, 1);
+  await page.locator("#complete").click();
+  await page.waitForFunction(() => document.querySelector("#statusPill")?.textContent === "Completed");
+  assert.equal(noteCalls, 1);
+  assert.equal(completeCalls, 2);
+});
+
 test("successful completion reloads into the server-rendered read-only state", async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());

@@ -19,6 +19,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     let activeIndex = 0;
     let elapsedSeconds = Number(session.elapsed_seconds || 0);
     let lastSavedNote = notes?.value.trim() || '';
+    let noteSavePromise = null;
 
     function apiUrl(path) { const url = new URL(path, location.href); url.username = ''; url.password = ''; return url.href; }
     function setToast(text) {
@@ -284,8 +285,14 @@ export function renderLiveSessionRuntime(runtimeData) {
     async function saveNotes() {
       const text = notes?.value.trim() || '';
       if (!text || text === lastSavedNote) return;
-      await postEvent('note_added', { note: text });
-      lastSavedNote = text;
+      if (noteSavePromise) {
+        await noteSavePromise;
+        return saveNotes();
+      }
+      noteSavePromise = postEvent('note_added', { note: text })
+        .then(() => { lastSavedNote = text; })
+        .finally(() => { noteSavePromise = null; });
+      return noteSavePromise;
     }
     saveNote?.addEventListener('click', () => withPending('note', saveNotes).catch((error) => setToast(error.message)));
     for (const button of document.querySelectorAll('[data-effort]')) button.addEventListener('click', () => postEvent('effort_flag_logged', { kind: button.dataset.effort }).then(() => { for (const item of document.querySelectorAll('[data-effort]')) item.setAttribute('aria-pressed', String(item === button)); }).catch((error) => setToast(error.message)));
