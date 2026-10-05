@@ -355,7 +355,7 @@ export function renderChatPage() {
       </div>
       <div class="status-card">
         <span class="status-label">Connection</span>
-        <span class="status" id="status"><span class="dot"></span><span id="statusText">password protected</span></span>
+        <span class="status" id="status"><span class="dot"></span><span id="statusText">ready</span></span>
       </div>
     </header>
 
