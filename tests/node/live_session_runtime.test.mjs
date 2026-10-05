@@ -162,6 +162,45 @@ test("completion stops and remains editable when the structured note write fails
   assert.equal(await page.locator("#statusPill").textContent(), "Live");
 });
 
+test("successful completion reloads into the server-rendered read-only state", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  let completed = false;
+  const session = {
+    id: "reload-session",
+    status: "active",
+    active_version: 2,
+    exercises: [
+      { id: "ex-1", name: "Row", prescription: { sets: 2, reps: 8 } },
+      { id: "ex-2", name: "Press", prescription: { sets: 2, reps: 8 } },
+    ],
+    events: [],
+  };
+  const page = await browser.newPage();
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (request.resourceType() === "document") {
+      const html = renderSessionPage({ ...session, status: completed ? "completed" : "active", completed_at: completed ? "2026-10-04T10:30:00.000Z" : null });
+      return route.fulfill({ status: 200, contentType: "text/html", body: html });
+    }
+    if (path.endsWith("/complete")) {
+      completed = true;
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ status: "completed" }) });
+    }
+    if (path.startsWith("/api/")) return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+    return route.abort();
+  });
+  await page.goto("http://localhost/sessions/reload-session");
+  const navigation = page.waitForNavigation();
+  await page.locator("#complete").click();
+  await navigation;
+  assert.equal(await page.locator("#statusPill").textContent(), "Completed");
+  assert.equal(await page.locator("[data-log-set]").count(), 0);
+  assert.equal(await page.locator("[data-write-control]").count(), 0);
+  assert.equal(await page.locator("#nextExercise").isDisabled(), false);
+});
+
 test("completed session keeps review navigation usable without write requests", async (t) => {
   const browser = await chromium.launch({ headless: true });
   t.after(() => browser.close());
@@ -287,11 +326,13 @@ test("live session browser runtime keeps write routes and structured payloads", 
     events: [],
   }), completionCalls);
   await completionPage.locator("#notes").fill("Completion note");
+  await capturePost(completionPage, (path, body) => path.endsWith("/events") && body.type === "note_added", () => completionPage.locator("#saveNote").click());
   const completeRequest = await capturePost(completionPage, (path) => path.endsWith("/complete"), () => completionPage.locator("#complete").click());
   assert.equal(completeRequest.path, "/api/sessions/runtime-session/complete");
   assert.deepEqual(completeRequest.body.completion.notes, "Completion note");
   assert.deepEqual(completeRequest.body.completion.completed_exercise_ids, []);
   assert.match(completeRequest.body.completion.completed_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(completionCalls.filter((call) => call.body?.type === "note_added").length, 1);
   await completionPage.waitForFunction(() => document.querySelector("#statusPill")?.textContent === "Completed");
   assert.equal(await completionPage.locator("[data-exercise-note]").isDisabled(), true);
   assert.equal(await completionPage.locator("#notes").isDisabled(), true);

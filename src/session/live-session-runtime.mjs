@@ -18,6 +18,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     const pendingActions = new Set();
     let activeIndex = 0;
     let elapsedSeconds = Number(session.elapsed_seconds || 0);
+    let lastSavedNote = notes?.value.trim() || '';
 
     function apiUrl(path) { const url = new URL(path, location.href); url.username = ''; url.password = ''; return url.href; }
     function setToast(text) {
@@ -280,7 +281,12 @@ export function renderLiveSessionRuntime(runtimeData) {
       context?.querySelector('[data-done]')?.addEventListener('click', () => markExercise(card, context.querySelector('[data-done]').dataset.completed !== 'true').catch((error) => setToast(error.message)));
     }
 
-    async function saveNotes() { const text = notes?.value.trim(); if (!text) return; await postEvent('note_added', { note: text }); }
+    async function saveNotes() {
+      const text = notes?.value.trim() || '';
+      if (!text || text === lastSavedNote) return;
+      await postEvent('note_added', { note: text });
+      lastSavedNote = text;
+    }
     saveNote?.addEventListener('click', () => withPending('note', saveNotes).catch((error) => setToast(error.message)));
     for (const button of document.querySelectorAll('[data-effort]')) button.addEventListener('click', () => postEvent('effort_flag_logged', { kind: button.dataset.effort }).then(() => { for (const item of document.querySelectorAll('[data-effort]')) item.setAttribute('aria-pressed', String(item === button)); }).catch((error) => setToast(error.message)));
     for (const proposal of document.querySelectorAll('[data-proposal-id]')) {
