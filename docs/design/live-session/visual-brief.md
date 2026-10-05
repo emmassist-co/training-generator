@@ -1,10 +1,10 @@
 # Flue live-session visual brief
 
-- **Status:** Editorial Performance direction approved
+- **Status:** Editorial Performance mobile, desktop, and state references approved
 - **Scope:** live training session only
 - **Approved direction:** Direction A, including its prominent acid-lime exercise-image treatment and polished 20px/4px/8px spacing system
-- **Approval record:** The user selected Direction A over Direction B, required imagery to become central to the look, requested a spacing/alignment pass, and then approved the polished mobile reference on 2026-10-04.
-- **Next gate:** produce and approve the final desktop composition and required state references before changing production UI.
+- **Approval record:** The user selected Direction A over Direction B, required imagery to become central to the look, requested a spacing/alignment pass, approved the polished mobile reference, then explicitly approved the desktop and state references on 2026-10-04.
+- **Next gate:** implement the approved system in the production live-session UI without changing its structured training-data contract.
 
 ## Selected visual direction
 
