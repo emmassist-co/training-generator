@@ -51,7 +51,9 @@ test("profile learning proposal changes context only after apply", async () => {
 });
 
 test("hosted pages share the Flue editorial product system", () => {
-  const pages = [renderHomePage(), renderHistoryPage(), renderChatPage()];
+  const chat = renderChatPage();
+  const pages = [renderHomePage(), renderHistoryPage(), chat];
+  assert.doesNotMatch(chat, /Enter for newline/);
   for (const html of pages) {
     assert.match(html, /aria-label="Flue"/);
     assert.match(html, /Barlow Condensed/);

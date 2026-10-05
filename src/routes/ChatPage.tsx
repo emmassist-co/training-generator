@@ -43,7 +43,7 @@ function ChatDocument() {
             <form id="form">
               <div class="input-wrap">
                 <textarea id="input" rows={2} placeholder="Ask for a session, edit the active workout, or log what you completed…"></textarea>
-                <div class="composer-meta"><span>Enter for newline</span><span id="charCount">0</span></div>
+                <div class="composer-meta"><span id="charCount">0</span></div>
               </div>
               <div class="actions">
                 <button class="send" id="send" type="submit" disabled>Send</button>

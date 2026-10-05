@@ -18,10 +18,10 @@ export const HISTORY_PAGE_CSS = String.raw`
     .row-index{color:var(--dim);font:600 12px var(--display);letter-spacing:.08em}
     .row-title{min-width:0}
     .row-title strong{display:block;font:700 clamp(24px,3vw,39px)/.9 var(--display);letter-spacing:-.015em;text-transform:uppercase;overflow-wrap:anywhere}
-    .row-title span{display:block;margin-top:8px;color:var(--muted);font-size:12px}
+    .row-summary{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
     .row-data{display:grid;gap:6px}
     .row-data strong{font:600 17px/1 var(--display);text-transform:uppercase}
-    .row-status{justify-self:start}
+    .row-status{justify-self:start;margin-top:8px}
     .row-arrow{color:var(--accent);font:600 25px var(--display)}
     .history-empty,.history-loading{min-height:220px;border-bottom:1px solid var(--rule);display:grid;place-items:center;color:var(--muted)}
     @media(max-width:900px){.history-intro{grid-template-columns:160px 24px minmax(0,1fr)}.history-row{grid-template-columns:44px minmax(0,1fr) 110px 36px}.row-date{display:none}}
