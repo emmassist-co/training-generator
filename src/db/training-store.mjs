@@ -27,6 +27,15 @@ export function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
+export function assertSessionAllowsUserWrite(session) {
+  if (session?.status === "completed") {
+    const error = new Error("completed sessions are read-only");
+    error.name = "ReadOnlySessionError";
+    error.code = "session_read_only";
+    throw error;
+  }
+}
+
 
 export function deriveSessionLiveState(session = {}) {
   const completedExerciseIds = new Set();
@@ -215,6 +224,7 @@ export function createMemoryTrainingStore(seed = {}) {
     async startSession({ session_id, started_at, idempotency_key } = {}) {
       const session = sessions.get(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "session_started");
       const startedAt = session.started_at || started_at || nowIso();
       sessions.set(session_id, { ...session, status: session.status === "completed" ? session.status : "active", started_at: startedAt });
       await this.logSessionEvent({
@@ -279,12 +289,14 @@ export function createMemoryTrainingStore(seed = {}) {
         exercises.set(exercise.id, exercise);
       }
       if (input.telemetry) telemetry.set(sessionId, clone(input.telemetry));
-      await this.logSessionEvent({
-        session_id: sessionId,
-        type: "session_created",
-        payload: { title: session.title, exercise_count: input.exercises?.length || 0 },
-        idempotency_key: `session_created:${sessionId}`,
-      });
+      if (session.status !== "completed") {
+        await this.logSessionEvent({
+          session_id: sessionId,
+          type: "session_created",
+          payload: { title: session.title, exercise_count: input.exercises?.length || 0 },
+          idempotency_key: `session_created:${sessionId}`,
+        });
+      }
       return getSessionSnapshot(sessionId);
     },
 
@@ -293,7 +305,9 @@ export function createMemoryTrainingStore(seed = {}) {
     },
 
     async proposeSessionChange({ session_id, proposal_id, patch, reason, created_by = "agent" }) {
-      if (!sessions.has(session_id)) throw new Error(`Session not found: ${session_id}`);
+      const session = sessions.get(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "proposal_created");
       const proposalId = proposal_id || stableId("proposal", { session_id, patch, reason });
       await this.logSessionEvent({
         id: proposalId,
@@ -309,6 +323,7 @@ export function createMemoryTrainingStore(seed = {}) {
     async applyApprovedChange({ session_id, proposal_id, patch, approved_by = "user", idempotency_key }) {
       const session = sessions.get(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "proposal_accepted");
       const resolvedPatch = patch || [...events.values()].find((event) => event.session_id === session_id && event.id === proposal_id)?.payload?.patch;
       if (!resolvedPatch) throw new Error("applyApprovedChange requires a patch or a proposal_id with a saved patch.");
       const key = idempotency_key || `apply:${proposal_id || stableId("patch", resolvedPatch)}`;
@@ -330,6 +345,9 @@ export function createMemoryTrainingStore(seed = {}) {
     },
 
     async rejectProposal({ session_id, proposal_id, reason, idempotency_key }) {
+      const session = sessions.get(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "proposal_rejected");
       await this.logSessionEvent({
         session_id,
         type: "proposal_rejected",
@@ -341,7 +359,9 @@ export function createMemoryTrainingStore(seed = {}) {
     },
 
     async logSessionEvent({ id, session_id, type, version, payload = {}, idempotency_key, approved_by, reason }) {
-      if (!sessions.has(session_id)) throw new Error(`Session not found: ${session_id}`);
+      const session = sessions.get(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, type);
       if (idempotency_key) {
         const existing = [...events.values()].find((event) => event.session_id === session_id && event.idempotency_key === idempotency_key);
         if (existing) return clone(existing);
@@ -350,7 +370,7 @@ export function createMemoryTrainingStore(seed = {}) {
         id: id || stableId("event", { session_id, type, payload, idempotency_key, at: nowIso() }),
         session_id,
         type,
-        version: version || sessions.get(session_id).active_version,
+        version: version || session.active_version,
         payload: clone(payload),
         idempotency_key: idempotency_key || null,
         approved_by: approved_by || null,
@@ -364,18 +384,25 @@ export function createMemoryTrainingStore(seed = {}) {
     async completeSession({ session_id, completion = {}, telemetry: telemetryPayload, idempotency_key }) {
       const session = sessions.get(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
+      const key = idempotency_key || `complete:${session_id}`;
+      const existing = [...events.values()].find((event) => event.session_id === session_id && event.idempotency_key === key);
+      if (session.status === "completed") {
+        if (!existing) assertSessionAllowsUserWrite(session);
+        if (telemetryPayload) telemetry.set(session_id, clone(telemetryPayload));
+        return getSessionSnapshot(session_id);
+      }
+      await this.logSessionEvent({
+        session_id,
+        type: "session_completed",
+        payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) },
+        idempotency_key: key,
+      });
+      if (telemetryPayload) telemetry.set(session_id, clone(telemetryPayload));
       sessions.set(session_id, {
         ...session,
         status: "completed",
         completed_at: completion.completed_at || nowIso(),
         completion: clone(completion),
-      });
-      if (telemetryPayload) telemetry.set(session_id, clone(telemetryPayload));
-      await this.logSessionEvent({
-        session_id,
-        type: "session_completed",
-        payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) },
-        idempotency_key: idempotency_key || `complete:${session_id}`,
       });
       return getSessionSnapshot(session_id);
     },
@@ -540,6 +567,7 @@ export function createD1TrainingStore(db) {
     async startSession({ session_id, started_at, idempotency_key } = {}) {
       const session = await this.getSession(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "session_started");
       const startedAt = session.started_at || started_at || nowIso();
       if (session.status !== "completed") {
         await db.prepare("UPDATE sessions SET status = 'active', started_at = COALESCE(started_at, ?) WHERE id = ?")
@@ -608,12 +636,14 @@ export function createD1TrainingStore(db) {
           .bind(sessionId, JSON.stringify(input.telemetry))
           .run();
       }
-      await this.logSessionEvent({
-        session_id: sessionId,
-        type: "session_created",
-        payload: { title: input.title || "Training Session", exercise_count: input.exercises?.length || 0 },
-        idempotency_key: `session_created:${sessionId}`,
-      });
+      if (input.status !== "completed") {
+        await this.logSessionEvent({
+          session_id: sessionId,
+          type: "session_created",
+          payload: { title: input.title || "Training Session", exercise_count: input.exercises?.length || 0 },
+          idempotency_key: `session_created:${sessionId}`,
+        });
+      }
       return this.getSession(sessionId);
     },
 
@@ -672,6 +702,7 @@ export function createD1TrainingStore(db) {
     async proposeSessionChange({ session_id, proposal_id, patch, reason, created_by = "agent" }) {
       const session = await this.getSession(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "proposal_created");
       const proposalId = proposal_id || stableId("proposal", { session_id, patch, reason });
       await this.logSessionEvent({ id: proposalId, session_id, type: "proposal_created", payload: { patch: clone(patch), created_by }, reason, idempotency_key: `proposal:${proposalId}` });
       return { proposal_id: proposalId, session_id, patch: clone(patch), reason, status: "proposed" };
@@ -680,6 +711,7 @@ export function createD1TrainingStore(db) {
     async applyApprovedChange({ session_id, proposal_id, patch, approved_by = "user", idempotency_key }) {
       const session = await this.getSession(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "proposal_accepted");
       const resolvedPatch = patch || await readProposalPatch(db, { session_id, proposal_id });
       if (!resolvedPatch) throw new Error("applyApprovedChange requires a patch or a proposal_id with a saved patch.");
       const key = idempotency_key || `apply:${proposal_id || stableId("patch", resolvedPatch)}`;
@@ -693,6 +725,9 @@ export function createD1TrainingStore(db) {
     },
 
     async rejectProposal({ session_id, proposal_id, reason, idempotency_key }) {
+      const session = await this.getSession(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, "proposal_rejected");
       await this.logSessionEvent({ session_id, type: "proposal_rejected", payload: { proposal_id }, reason, idempotency_key: idempotency_key || `reject:${proposal_id}` });
       return this.getSession(session_id);
     },
@@ -700,13 +735,22 @@ export function createD1TrainingStore(db) {
     async completeSession({ session_id, completion = {}, telemetry: telemetryPayload, idempotency_key }) {
       const session = await this.getSession(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
-      await db.prepare("UPDATE sessions SET status = 'completed', completed_at = ?, completion_json = ? WHERE id = ?")
-        .bind(completion.completed_at || nowIso(), JSON.stringify(completion), session_id)
-        .run();
+      const key = idempotency_key || `complete:${session_id}`;
+      const existing = await db.prepare("SELECT id FROM session_events WHERE session_id = ? AND idempotency_key = ?").bind(session_id, key).first();
+      if (session.status === "completed") {
+        if (!existing) assertSessionAllowsUserWrite(session);
+        if (telemetryPayload) {
+          await db.prepare("INSERT INTO session_telemetry (session_id, telemetry_json) VALUES (?, ?) ON CONFLICT(session_id) DO UPDATE SET telemetry_json = excluded.telemetry_json, updated_at = CURRENT_TIMESTAMP").bind(session_id, JSON.stringify(telemetryPayload)).run();
+        }
+        return this.getSession(session_id);
+      }
+      await this.logSessionEvent({ session_id, type: "session_completed", payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) }, idempotency_key: key });
       if (telemetryPayload) {
         await db.prepare("INSERT INTO session_telemetry (session_id, telemetry_json) VALUES (?, ?) ON CONFLICT(session_id) DO UPDATE SET telemetry_json = excluded.telemetry_json, updated_at = CURRENT_TIMESTAMP").bind(session_id, JSON.stringify(telemetryPayload)).run();
       }
-      await this.logSessionEvent({ session_id, type: "session_completed", payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) }, idempotency_key: idempotency_key || `complete:${session_id}` });
+      await db.prepare("UPDATE sessions SET status = 'completed', completed_at = ?, completion_json = ? WHERE id = ?")
+        .bind(completion.completed_at || nowIso(), JSON.stringify(completion), session_id)
+        .run();
       return this.getSession(session_id);
     },
 
@@ -752,8 +796,17 @@ export function createD1TrainingStore(db) {
     },
 
     async logSessionEvent({ id, session_id, type, version, payload = {}, idempotency_key, approved_by, reason }) {
+      const session = await this.getSession(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      assertSessionAllowsUserWrite(session, type);
+      if (idempotency_key) {
+        const existing = await db.prepare("SELECT * FROM session_events WHERE session_id = ? AND idempotency_key = ?").bind(session_id, idempotency_key).first();
+        if (existing) {
+          return { ...existing, payload: JSON.parse(existing.payload_json || "{}") };
+        }
+      }
       const eventId = id || stableId("event", { session_id, type, payload, idempotency_key });
-      const eventVersion = version || (await this.getSession(session_id))?.active_version || 1;
+      const eventVersion = version || session.active_version || 1;
       await db.prepare("INSERT OR IGNORE INTO session_events (id, session_id, type, version, payload_json, idempotency_key, approved_by, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         .bind(eventId, session_id, type, eventVersion, JSON.stringify(payload), idempotency_key || null, approved_by || null, reason || null)
         .run();

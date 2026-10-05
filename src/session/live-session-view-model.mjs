@@ -24,6 +24,45 @@ export function prescriptionNotes(prescription = {}) {
   return notes;
 }
 
+function prescribedSetCount(prescription = {}) {
+  const value = Number.parseInt(String(prescription.sets ?? ""), 10);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function currentSetForExercise(exercise = {}, loggedSets = []) {
+  const total = prescribedSetCount(exercise.prescription);
+  const savedCount = loggedSets.length;
+  const isComplete = Boolean(total && savedCount >= total);
+  const nextNumber = total ? Math.min(savedCount + 1, total) : savedCount + 1;
+  return {
+    number: nextNumber,
+    total,
+    planned_set_total: total,
+    saved_count: savedCount,
+    is_complete: isComplete,
+    primary_action_label: isComplete ? "Add extra set" : "Log set",
+    position_label: isComplete ? `All ${total} logged` : total ? `Set ${nextNumber} of ${total}` : `Set ${nextNumber}`,
+    label: isComplete ? "Extra set" : total ? `Set ${nextNumber} of ${total}` : `Set ${nextNumber}`,
+    target_reps: exercise.prescription?.reps || "",
+    target_load: conciseLoadValue(exercise.prescription?.load),
+    target_rest_seconds: exercise.prescription?.rest_seconds || null,
+  };
+}
+
+function savedSetSummaries(loggedSets = []) {
+  return loggedSets.map((set, index) => ({
+    reps: set.reps || "",
+    load: set.load || "",
+    note: set.note || "",
+    label: `Set ${index + 1}`,
+  }));
+}
+
+function compactPlanNote(notes = []) {
+  const first = notes[0] || "";
+  return first.length > 96 ? `${first.slice(0, 93).trim()}…` : first;
+}
+
 export function prescriptionText(prescription = {}) {
   const parts = [];
   const load = conciseLoadValue(prescription.load);
@@ -65,12 +104,21 @@ export function pendingSessionProposals(events = []) {
     .map((event) => ({ id: event.id, reason: event.reason, patch: event.payload?.patch || null }));
 }
 
+function elapsedSeconds(session) {
+  const startedAt = Date.parse(session.started_at || session.startedAt || "");
+  if (!Number.isFinite(startedAt)) return 0;
+  const completedAt = Date.parse(session.completed_at || session.completedAt || "");
+  const endedAt = session.status === "completed" && Number.isFinite(completedAt) ? completedAt : Date.now();
+  return Math.max(0, Math.floor((endedAt - startedAt) / 1000));
+}
+
 export function buildLiveSessionViewModel(session = {}) {
   const exercises = session.exercises || [];
   const liveState = deriveSessionLiveState(session);
   const completed = new Set(liveState.completed_exercise_ids || []);
   const isCompleted = session.status === "completed";
   const latestNote = liveState.notes?.at(-1)?.text || "";
+  const elapsed = elapsedSeconds(session);
 
   return {
     session: {
@@ -81,33 +129,42 @@ export function buildLiveSessionViewModel(session = {}) {
       active_version: session.active_version,
       summary: session.summary || "Train from one focused exercise card. Reps, load, timer, notes, and coach-readable logs save while you work.",
       is_completed: isCompleted,
+      elapsed_seconds: elapsed,
     },
     progress: {
       completed_count: completed.size,
       exercise_count: exercises.length,
       completed_exercise_ids: [...completed],
+      has_exercises: exercises.length > 0,
     },
     notes: { latest: latestNote },
     proposals: pendingSessionProposals(session.events || []),
     exercises: exercises.map((exercise, index) => {
       const loggedSets = liveState.set_logs?.filter((set) => (set.session_exercise_id || set.exercise_id) === exercise.id) || [];
+      const notes = prescriptionNotes(exercise.prescription);
+      const image = firstExerciseImage(exercise);
+      const latestSet = loggedSets.at(-1) || {};
       return {
         ...exercise,
         index,
         is_done: completed.has(exercise.id),
         prescription_text: prescriptionText(exercise.prescription),
-        prescription_notes: prescriptionNotes(exercise.prescription),
+        prescription_notes: notes,
+        plan_note: { compact: compactPlanNote(notes), full: notes.join("\n\n") },
+        current_set: currentSetForExercise(exercise, loggedSets),
+        saved_sets: savedSetSummaries(loggedSets),
         metrics: prescriptionMetricItems(exercise.prescription),
         media: {
-          image: firstExerciseImage(exercise),
+          image,
           caption: exercise.equipment || exercise.category || "Exercise demo",
           fallback_letter: (exercise.name?.[0] || "T").toUpperCase(),
         },
+        has_optional_details: Boolean(image || exercise.rationale || exercise.alternatives?.length || notes.length),
         logged_set_count: loggedSets.length,
         initial_reps: exercise.prescription?.reps || 0,
         initial_load: conciseLoadValue(exercise.prescription?.load) || 0,
-        input_reps: exercise.prescription?.reps || "",
-        input_load: conciseLoadValue(exercise.prescription?.load),
+        input_reps: latestSet.reps || exercise.prescription?.reps || "",
+        input_load: latestSet.load || conciseLoadValue(exercise.prescription?.load),
       };
     }),
     runtime: {
@@ -118,6 +175,7 @@ export function buildLiveSessionViewModel(session = {}) {
         completed_exercise_ids: liveState.completed_exercise_ids,
         set_logs: liveState.set_logs,
         exercise_count: exercises.length,
+        elapsed_seconds: elapsed,
       },
       exerciseNames: exercises.map((exercise) => exercise.name),
     },

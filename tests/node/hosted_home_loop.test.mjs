@@ -72,12 +72,15 @@ test("hosted pages render home history, D1 replay, and pending proposals", () =>
     ],
   });
   assert.match(html, /exercise photo/);
-  assert.match(html, /metric-card/);
-  assert.match(html, /Log this set/);
-  assert.match(html, /Reps done counter/);
-  assert.match(html, /Load used counter/);
-  assert.match(html, /Rest timer/);
-  assert.match(html, /Done \+ next/);
+  assert.match(html, /metric-strip/);
+  assert.doesNotMatch(html, /metric-card/);
+  assert.match(html, /Log set/);
+  assert.match(html, /Current set/);
+  assert.match(html, /Set 1 of 3/);
+  assert.doesNotMatch(html, /Reps done counter/);
+  assert.doesNotMatch(html, /Load used counter/);
+  assert.match(html, />Rest /);
+  assert.match(html, /Mark movement done/);
   assert.match(html, /Ask coach/);
   assert.match(html, /Pending coach changes/);
   assert.match(html, /Apply change/);
@@ -91,6 +94,9 @@ test("hosted pages render home history, D1 replay, and pending proposals", () =>
     exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 3, reps: 10 } }],
     events: [],
   });
-  assert.match(completedHtml, /id="bottomAddSet" disabled/);
-  assert.match(completedHtml, /id="bottomDone" disabled/);
+  const completedMarkup = completedHtml.slice(completedHtml.indexOf("<body>"), completedHtml.indexOf('<script type="module">'));
+  assert.doesNotMatch(completedMarkup, /data-log-set/);
+  assert.doesNotMatch(completedMarkup, /data-done/);
+  assert.match(completedMarkup, /id="nextExercise"/);
+  assert.doesNotMatch(completedMarkup, /id="nextExercise" disabled/);
 });
