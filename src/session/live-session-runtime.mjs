@@ -16,6 +16,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     const checked = new Set(session.completed_exercise_ids || []);
     const timers = new Map();
     const pendingActions = new Set();
+    const pendingPromises = new Map();
     let activeIndex = 0;
     let elapsedSeconds = Number(session.elapsed_seconds || 0);
     let lastSavedNote = notes?.value.trim() || '';
@@ -43,15 +44,28 @@ export function renderLiveSessionRuntime(runtimeData) {
       return event;
     }
     function buttonsForKey(key) { return [...document.querySelectorAll('[data-action-key="' + CSS.escape(key) + '"]')]; }
+    function syncCompletionControl() {
+      if (!complete || session.status === 'completed') return;
+      complete.disabled = pendingActions.has('complete') || [...pendingActions].some((key) => key.startsWith('set:'));
+    }
     async function withPending(key, fn) {
-      if (pendingActions.has(key) || session.status === 'completed') return null;
+      if (pendingActions.has(key) || session.status === 'completed') return pendingPromises.get(key) || null;
       pendingActions.add(key);
       for (const button of buttonsForKey(key)) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-      try { return await fn(); }
+      syncCompletionControl();
+      const promise = Promise.resolve().then(fn);
+      pendingPromises.set(key, promise);
+      try { return await promise; }
       finally {
+        pendingPromises.delete(key);
         pendingActions.delete(key);
         if (session.status !== 'completed') for (const button of buttonsForKey(key)) { button.disabled = false; button.removeAttribute('aria-busy'); }
+        syncCompletionControl();
       }
+    }
+    async function waitForPendingSets() {
+      const saves = [...pendingPromises.entries()].filter(([key]) => key.startsWith('set:')).map(([, promise]) => promise);
+      if (saves.length) await Promise.all(saves);
     }
     function setActionError(card, text) {
       const error = card?.querySelector('[data-error]');
@@ -311,6 +325,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     }
     complete?.addEventListener('click', () => withPending('complete', async () => {
       setToast('Completing…');
+      await waitForPendingSets();
       await saveNotes();
       await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/complete', { completion: { completed_at: new Date().toISOString(), notes: notes?.value.trim() || '', completed_exercise_ids: [...checked] } });
       setToast('Completed and logged');

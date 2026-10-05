@@ -92,6 +92,14 @@ test("completed sessions reject workout write events", async () => {
     /completed sessions are read-only/,
   );
   await assert.rejects(
+    () => store.logSessionEvent({ session_id: "session-readonly", type: "set_completed", payload: { exercise_id: "ex-1" } }),
+    /completed sessions are read-only/,
+  );
+  await assert.rejects(
+    () => store.logSessionEvent({ session_id: "session-readonly", type: "timer_event", payload: { action: "stop" } }),
+    /completed sessions are read-only/,
+  );
+  await assert.rejects(
     () => store.applyApprovedChange({ session_id: "session-readonly", proposal_id: "proposal-readonly" }),
     /completed sessions are read-only/,
   );
@@ -103,8 +111,12 @@ test("completed sessions reject workout write events", async () => {
     () => store.startSession({ session_id: "session-readonly" }),
     /completed sessions are read-only/,
   );
+  const replayedCompletion = await store.completeSession({ session_id: "session-readonly", completion: { notes: "Done" }, telemetry: { recovered: true } });
+  assert.equal(replayedCompletion.status, "completed");
+  assert.deepEqual(replayedCompletion.telemetry, { recovered: true });
+  assert.equal(replayedCompletion.events.filter((event) => event.type === "session_completed").length, 1);
   await assert.rejects(
-    () => store.completeSession({ session_id: "session-readonly", completion: { notes: "again" } }),
+    () => store.completeSession({ session_id: "session-readonly", completion: { notes: "again" }, idempotency_key: "complete:other-attempt" }),
     /completed sessions are read-only/,
   );
 

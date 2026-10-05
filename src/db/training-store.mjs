@@ -27,21 +27,8 @@ export function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
-const COMPLETED_SESSION_USER_WRITE_EVENTS = new Set([
-  "set_logged",
-  "exercise_completion_updated",
-  "note_added",
-  "note_saved",
-  "effort_flag_logged",
-  "proposal_created",
-  "proposal_accepted",
-  "proposal_rejected",
-  "session_started",
-  "session_completed",
-]);
-
-export function assertSessionAllowsUserWrite(session, type) {
-  if (session?.status === "completed" && COMPLETED_SESSION_USER_WRITE_EVENTS.has(type)) {
+export function assertSessionAllowsUserWrite(session) {
+  if (session?.status === "completed") {
     const error = new Error("completed sessions are read-only");
     error.name = "ReadOnlySessionError";
     error.code = "session_read_only";
@@ -302,12 +289,14 @@ export function createMemoryTrainingStore(seed = {}) {
         exercises.set(exercise.id, exercise);
       }
       if (input.telemetry) telemetry.set(sessionId, clone(input.telemetry));
-      await this.logSessionEvent({
-        session_id: sessionId,
-        type: "session_created",
-        payload: { title: session.title, exercise_count: input.exercises?.length || 0 },
-        idempotency_key: `session_created:${sessionId}`,
-      });
+      if (session.status !== "completed") {
+        await this.logSessionEvent({
+          session_id: sessionId,
+          type: "session_created",
+          payload: { title: session.title, exercise_count: input.exercises?.length || 0 },
+          idempotency_key: `session_created:${sessionId}`,
+        });
+      }
       return getSessionSnapshot(sessionId);
     },
 
@@ -395,20 +384,26 @@ export function createMemoryTrainingStore(seed = {}) {
     async completeSession({ session_id, completion = {}, telemetry: telemetryPayload, idempotency_key }) {
       const session = sessions.get(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
-      assertSessionAllowsUserWrite(session, "session_completed");
+      const key = idempotency_key || `complete:${session_id}`;
+      const existing = [...events.values()].find((event) => event.session_id === session_id && event.idempotency_key === key);
+      if (session.status === "completed") {
+        if (!existing) assertSessionAllowsUserWrite(session);
+        if (telemetryPayload) telemetry.set(session_id, clone(telemetryPayload));
+        return getSessionSnapshot(session_id);
+      }
       await this.logSessionEvent({
         session_id,
         type: "session_completed",
         payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) },
-        idempotency_key: idempotency_key || `complete:${session_id}`,
+        idempotency_key: key,
       });
+      if (telemetryPayload) telemetry.set(session_id, clone(telemetryPayload));
       sessions.set(session_id, {
         ...session,
         status: "completed",
         completed_at: completion.completed_at || nowIso(),
         completion: clone(completion),
       });
-      if (telemetryPayload) telemetry.set(session_id, clone(telemetryPayload));
       return getSessionSnapshot(session_id);
     },
 
@@ -641,12 +636,14 @@ export function createD1TrainingStore(db) {
           .bind(sessionId, JSON.stringify(input.telemetry))
           .run();
       }
-      await this.logSessionEvent({
-        session_id: sessionId,
-        type: "session_created",
-        payload: { title: input.title || "Training Session", exercise_count: input.exercises?.length || 0 },
-        idempotency_key: `session_created:${sessionId}`,
-      });
+      if (input.status !== "completed") {
+        await this.logSessionEvent({
+          session_id: sessionId,
+          type: "session_created",
+          payload: { title: input.title || "Training Session", exercise_count: input.exercises?.length || 0 },
+          idempotency_key: `session_created:${sessionId}`,
+        });
+      }
       return this.getSession(sessionId);
     },
 
@@ -738,14 +735,22 @@ export function createD1TrainingStore(db) {
     async completeSession({ session_id, completion = {}, telemetry: telemetryPayload, idempotency_key }) {
       const session = await this.getSession(session_id);
       if (!session) throw new Error(`Session not found: ${session_id}`);
-      assertSessionAllowsUserWrite(session, "session_completed");
-      await this.logSessionEvent({ session_id, type: "session_completed", payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) }, idempotency_key: idempotency_key || `complete:${session_id}` });
-      await db.prepare("UPDATE sessions SET status = 'completed', completed_at = ?, completion_json = ? WHERE id = ?")
-        .bind(completion.completed_at || nowIso(), JSON.stringify(completion), session_id)
-        .run();
+      const key = idempotency_key || `complete:${session_id}`;
+      const existing = await db.prepare("SELECT id FROM session_events WHERE session_id = ? AND idempotency_key = ?").bind(session_id, key).first();
+      if (session.status === "completed") {
+        if (!existing) assertSessionAllowsUserWrite(session);
+        if (telemetryPayload) {
+          await db.prepare("INSERT INTO session_telemetry (session_id, telemetry_json) VALUES (?, ?) ON CONFLICT(session_id) DO UPDATE SET telemetry_json = excluded.telemetry_json, updated_at = CURRENT_TIMESTAMP").bind(session_id, JSON.stringify(telemetryPayload)).run();
+        }
+        return this.getSession(session_id);
+      }
+      await this.logSessionEvent({ session_id, type: "session_completed", payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) }, idempotency_key: key });
       if (telemetryPayload) {
         await db.prepare("INSERT INTO session_telemetry (session_id, telemetry_json) VALUES (?, ?) ON CONFLICT(session_id) DO UPDATE SET telemetry_json = excluded.telemetry_json, updated_at = CURRENT_TIMESTAMP").bind(session_id, JSON.stringify(telemetryPayload)).run();
       }
+      await db.prepare("UPDATE sessions SET status = 'completed', completed_at = ?, completion_json = ? WHERE id = ?")
+        .bind(completion.completed_at || nowIso(), JSON.stringify(completion), session_id)
+        .run();
       return this.getSession(session_id);
     },
 

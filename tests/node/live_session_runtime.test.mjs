@@ -74,12 +74,14 @@ test("set logging exposes pending, blocks duplicates, and keeps values on failur
   await pendingButton.click();
   await pendingPage.waitForFunction(() => document.querySelector("[data-log-set]")?.getAttribute("aria-busy") === "true");
   assert.equal(await pendingButton.isDisabled(), true);
+  assert.equal(await pendingPage.locator("#complete").isDisabled(), true);
   assert.equal(await pendingPage.locator("[data-action-label]").textContent(), "Sending set…");
   assert.equal(await pendingPage.locator("[data-set-feedback]").getAttribute("role"), "status");
   await pendingButton.dispatchEvent("click");
   assert.equal(pendingCalls.length, 1);
   releaseRequest();
   await pendingPage.waitForFunction(() => !document.querySelector("[data-log-set]")?.disabled);
+  assert.equal(await pendingPage.locator("#complete").isDisabled(), false);
   assert.equal(pendingCalls.length, 1);
   assert.equal(await pendingPage.locator(".saved-sets").getAttribute("aria-label"), "Saved sets");
   assert.match(await pendingPage.locator(".saved-sets").textContent(), /01\s+10×—/);
