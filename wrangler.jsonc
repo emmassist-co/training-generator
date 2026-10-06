@@ -3,6 +3,12 @@
   "name": "training-generator-agent",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
+  "routes": [
+    {
+      "pattern": "gym.alexandrempsantos.com",
+      "custom_domain": true
+    }
+  ],
   "d1_databases": [
     {
       "binding": "TRAINING_DB",
