@@ -391,3 +391,72 @@ test("live session browser runtime keeps write routes and structured payloads", 
   assert.equal(await completionPage.locator("#complete").isDisabled(), true);
   assert.equal(await completionPage.locator("#nextExercise").isDisabled(), true);
 });
+
+test("exercise references enlarge and session controls restart or cancel safely", async (t) => {
+  const browser = await chromium.launch({ headless: true });
+  t.after(() => browser.close());
+  const fixture = {
+    id: "controls-session",
+    profile_id: "alex",
+    status: "active",
+    active_version: 2,
+    exercises: [{
+      id: "ex-1",
+      exercise_id: "Cable_Row",
+      name: "Cable Row",
+      prescription: { sets: 3, reps: 10 },
+      muscles: ["middle back", "biceps"],
+      images: ["Cable_Row/0.jpg", "Cable_Row/1.jpg"],
+    }],
+    events: [],
+  };
+  const html = renderSessionPage(fixture);
+  const pixel = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+
+  async function controlledPage() {
+    const calls = [];
+    const page = await browser.newPage();
+    await page.route("**/*", async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      if (request.resourceType() === "document") return route.fulfill({ status: 200, contentType: "text/html", body: html });
+      if (request.resourceType() === "image") return route.fulfill({ status: 200, contentType: "image/png", body: pixel });
+      if (path.endsWith("/restart")) {
+        calls.push({ path, body: requestBody(request) });
+        return route.fulfill({ status: 201, contentType: "application/json", body: JSON.stringify({ id: "fresh-session", status: "active" }) });
+      }
+      if (path.endsWith("/cancel")) {
+        calls.push({ path, body: requestBody(request) });
+        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ id: "controls-session", status: "aborted" }) });
+      }
+      if (path.startsWith("/api/")) return route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+      return route.abort();
+    });
+    await page.goto("http://localhost/sessions/controls-session");
+    return { page, calls };
+  }
+
+  const restart = await controlledPage();
+  assert.ok(await restart.page.locator('[data-muscle-id="biceps-left"].is-target').count());
+  assert.ok(await restart.page.locator('[data-muscle-id="traps-mid-left"].is-target').count());
+  await restart.page.locator(".media-expand").click();
+  assert.equal(await restart.page.locator("#exerciseLightbox").evaluate((dialog) => dialog.open), true);
+  assert.equal(await restart.page.locator("[data-lightbox-count]").textContent(), "1 / 2");
+  await restart.page.locator("[data-lightbox-next]").click();
+  assert.equal(await restart.page.locator("[data-lightbox-count]").textContent(), "2 / 2");
+  await restart.page.locator("[data-lightbox-close]").click();
+  await restart.page.locator(".session-controls summary").click();
+  await restart.page.locator('[data-session-action="restart"]').click();
+  await restart.page.locator("[data-session-confirm]").click();
+  await restart.page.waitForURL("**/sessions/fresh-session");
+  assert.equal(restart.calls[0].path, "/api/sessions/controls-session/restart");
+  await restart.page.close();
+
+  const cancel = await controlledPage();
+  await cancel.page.locator(".session-controls summary").click();
+  await cancel.page.locator('[data-session-action="cancel"]').click();
+  await cancel.page.locator("[data-session-confirm]").click();
+  await cancel.page.waitForURL("http://localhost/");
+  assert.equal(cancel.calls[0].path, "/api/sessions/controls-session/cancel");
+  await cancel.page.close();
+});

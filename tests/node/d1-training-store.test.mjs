@@ -128,6 +128,58 @@ test("completed sessions reject workout write events", async () => {
   assert.equal(after.exercises[0].name, "Row");
 });
 
+test("cancel and start over preserve the old session while creating clean work", async () => {
+  const store = createMemoryTrainingStore();
+  await store.createSession({
+    id: "active-old",
+    profile_id: "alexandre",
+    title: "Upper Pull",
+    status: "active",
+    exercises: [{ id: "old-row", exercise_id: "Cable_Row", name: "Cable Row", prescription: { sets: 3, reps: 10 } }],
+  });
+  await store.logSessionEvent({ session_id: "active-old", type: "set_logged", payload: { session_exercise_id: "old-row", reps: "10", load: "50 kg" } });
+
+  const fresh = await store.restartSession({ session_id: "active-old", restarted_at: "2026-10-06T15:00:00.000Z" });
+  const old = await store.getSession("active-old");
+
+  assert.equal(old.status, "aborted");
+  assert.equal(old.events.some((event) => event.type === "session_canceled"), true);
+  assert.notEqual(fresh.id, old.id);
+  assert.equal(fresh.status, "active");
+  assert.equal(fresh.started_at, "2026-10-06T15:00:00.000Z");
+  assert.equal(fresh.exercises[0].name, "Cable Row");
+  assert.equal(fresh.events.some((event) => event.type === "set_logged"), false);
+  assert.equal((await store.getActiveOrPlannedSession({ profileId: "alexandre" })).id, fresh.id);
+  assert.equal((await store.restartSession({ session_id: "active-old" })).id, fresh.id);
+
+  const canceled = await store.abortSession({ session_id: fresh.id, reason: "Testing complete" });
+  assert.equal(canceled.status, "aborted");
+  assert.equal(await store.getActiveOrPlannedSession({ profileId: "alexandre" }), null);
+  await assert.rejects(() => store.logSessionEvent({ session_id: fresh.id, type: "set_logged" }), /canceled sessions are read-only/);
+});
+
+test("D1 cancel and start over create a clean replacement session", async () => {
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(await readFile(new URL("../../migrations/0001_training_domain.sql", import.meta.url), "utf8"));
+  sqlite.exec(await readFile(new URL("../../migrations/0002_exercise_catalog.sql", import.meta.url), "utf8"));
+  const d1 = sqliteD1(sqlite);
+  const store = createD1TrainingStore(d1);
+  await store.createSession({ id: "d1-old", profile_id: "alexandre", title: "D1 restart", status: "active", exercises: [{ id: "d1-row", exercise_id: "Cable_Row", name: "Cable Row", prescription: { sets: 3, reps: 8 } }] });
+  await store.logSessionEvent({ session_id: "d1-old", type: "set_logged", payload: { session_exercise_id: "d1-row", reps: "8" } });
+
+  const fresh = await store.restartSession({ session_id: "d1-old", restarted_at: "2026-10-06T15:10:00.000Z" });
+  const old = await store.getSession("d1-old");
+
+  assert.equal(old.status, "aborted");
+  assert.equal(fresh.status, "active");
+  assert.notEqual(fresh.id, old.id);
+  assert.equal(fresh.exercises.length, 1);
+  assert.equal(fresh.events.some((event) => event.type === "set_logged"), false);
+  assert.equal((await store.getActiveOrPlannedSession({ profileId: "alexandre" })).id, fresh.id);
+  assert.equal((await store.restartSession({ session_id: "d1-old" })).id, fresh.id);
+  sqlite.close();
+});
+
 test("D1 session reads recover catalog images from the exercise name", async () => {
   const sqlite = new DatabaseSync(":memory:");
   sqlite.exec(await readFile(new URL("../../migrations/0001_training_domain.sql", import.meta.url), "utf8"));
@@ -140,7 +192,14 @@ test("D1 session reads recover catalog images from the exercise name", async () 
     INSERT INTO exercise_catalog (id, name, images_json)
       VALUES ('Seated_Cable_Rows', 'Seated Cable Rows', '["Seated_Cable_Rows/0.jpg"]');
   `);
-  const d1 = {
+  const session = await createD1TrainingStore(sqliteD1(sqlite)).getSession("session-images");
+  assert.equal(session.exercises[0].exercise_id, "session-local-row");
+  assert.deepEqual(session.exercises[0].images, ["Seated_Cable_Rows/0.jpg"]);
+  sqlite.close();
+});
+
+function sqliteD1(sqlite) {
+  return {
     prepare(sql) {
       const statement = sqlite.prepare(sql);
       let bindings = [];
@@ -148,16 +207,23 @@ test("D1 session reads recover catalog images from the exercise name", async () 
         bind(...values) { bindings = values; return this; },
         async first() { return statement.get(...bindings) || null; },
         async all() { return { results: statement.all(...bindings) }; },
-        async run() { statement.run(...bindings); return { success: true }; },
+        async run() { const result = statement.run(...bindings); return { success: true, meta: { changes: Number(result.changes || 0) } }; },
       };
     },
+    async batch(statements) {
+      sqlite.exec("BEGIN");
+      try {
+        const results = [];
+        for (const statement of statements) results.push(await statement.run());
+        sqlite.exec("COMMIT");
+        return results;
+      } catch (error) {
+        sqlite.exec("ROLLBACK");
+        throw error;
+      }
+    },
   };
-
-  const session = await createD1TrainingStore(d1).getSession("session-images");
-  assert.equal(session.exercises[0].exercise_id, "session-local-row");
-  assert.deepEqual(session.exercises[0].images, ["Seated_Cable_Rows/0.jpg"]);
-  sqlite.close();
-});
+}
 
 test("history listing exposes older profile sessions beyond recent context", async () => {
   const store = createMemoryTrainingStore();

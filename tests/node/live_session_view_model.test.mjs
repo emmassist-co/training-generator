@@ -80,6 +80,12 @@ test("live session view model derives replayed state and media safely", () => {
   assert.deepEqual(model.exercises[0].guidance, {
     equipment: "cable",
     target_areas: ["middle back", "biceps"],
+    muscle_map: {
+      groups: ["middle back", "biceps"],
+      front_ids: ["biceps-left", "biceps-right"],
+      back_ids: ["traps-mid-left", "traps-lower-left", "traps-mid-right", "traps-lower-right", "lats-upper-left", "lats-mid-left", "lats-upper-right", "lats-mid-right"],
+      unmapped: [],
+    },
     instructions: ["Sit tall with the feet braced.", "Pull the handle toward the lower ribs."],
     attention: ["Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively."],
     rationale: "Build controlled pulling strength.",
@@ -118,6 +124,21 @@ test("live session view model marks completed sessions read-only and preserves d
   assert.equal(model.runtime.session.elapsed_seconds, 2526);
   assert.equal(model.progress.exercise_count, 0);
   assert.equal(model.progress.has_exercises, false);
+});
+
+test("live session view model marks canceled sessions read-only", () => {
+  const model = buildLiveSessionViewModel({
+    id: "canceled-session",
+    status: "aborted",
+    started_at: "2026-10-06T10:00:00.000Z",
+    completed_at: "2026-10-06T10:05:00.000Z",
+    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 2, reps: 8 } }],
+  });
+
+  assert.equal(model.session.is_completed, false);
+  assert.equal(model.session.is_canceled, true);
+  assert.equal(model.session.is_read_only, true);
+  assert.equal(model.session.elapsed_seconds, 300);
 });
 
 test("live session view model treats planned set count as fixed", () => {

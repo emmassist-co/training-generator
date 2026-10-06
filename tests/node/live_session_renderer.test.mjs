@@ -54,6 +54,15 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
   assert.match(html, /Form reference/);
   assert.match(html, /Step 1 of 2/);
   assert.match(html, /Cable_Row\/1\.jpg/);
+  assert.match(html, /Tap to enlarge/);
+  assert.match(html, /<dialog[^>]*id="exerciseLightbox"/);
+  assert.match(html, /class="guide-block muscle-focus"/);
+  assert.match(html, /Front view/);
+  assert.match(html, /Back view/);
+  assert.match(html, /data-front-targets="biceps-left,biceps-right"/);
+  assert.match(html, /data-muscle-id/);
+  assert.match(html, /Cancel session/);
+  assert.match(html, /Start over/);
   assert.match(html, /value="50 kg"/);
   assert.match(html, /href="\/chat\?profile_id=alex&amp;session_id=s%3Cscript%3E"/);
   assert.match(html, /Pending coach changes/);
@@ -85,9 +94,28 @@ test("completed live session renderer removes proposal writes and disables botto
   assert.doesNotMatch(markup, /id="saveNote"/);
   assert.doesNotMatch(markup, /id="complete"/);
   assert.doesNotMatch(markup, />Apply change</);
+  assert.doesNotMatch(markup, /data-session-action/);
   assert.match(markup, /id="nextExercise"/);
   assert.doesNotMatch(markup, /id="nextExercise" disabled/);
   assert.match(html, /session\.status === 'completed'/);
+});
+
+test("canceled live sessions render read-only without session actions", () => {
+  const html = renderSessionPage({
+    id: "canceled",
+    profile_id: "alex",
+    title: "Canceled session",
+    status: "aborted",
+    active_version: 1,
+    exercises: [{ id: "ex-1", name: "Row", prescription: { sets: 3, reps: 10 } }],
+    events: [],
+  });
+  const markup = html.slice(html.indexOf("<body>"), html.indexOf('<script type="module">'));
+
+  assert.match(markup, /Canceled/);
+  assert.match(markup, /Session canceled · Read-only/);
+  assert.doesNotMatch(markup, /data-log-set/);
+  assert.doesNotMatch(markup, /data-session-action/);
 });
 
 test("live session renderer keeps current-set controls before optional media and details", () => {

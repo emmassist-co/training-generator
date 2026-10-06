@@ -28,8 +28,9 @@ export function clone(value) {
 }
 
 export function assertSessionAllowsUserWrite(session) {
-  if (session?.status === "completed") {
-    const error = new Error("completed sessions are read-only");
+  if (["completed", "aborted"].includes(session?.status)) {
+    const label = session.status === "aborted" ? "canceled" : "completed";
+    const error = new Error(`${label} sessions are read-only`);
     error.name = "ReadOnlySessionError";
     error.code = "session_read_only";
     throw error;
@@ -234,6 +235,48 @@ export function createMemoryTrainingStore(seed = {}) {
         idempotency_key: idempotency_key || `start:${session_id}`,
       });
       return getSessionSnapshot(session_id);
+    },
+
+    async abortSession({ session_id, reason, idempotency_key } = {}) {
+      const session = sessions.get(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      if (session.status === "aborted") return getSessionSnapshot(session_id);
+      assertSessionAllowsUserWrite(session);
+      await this.logSessionEvent({
+        session_id,
+        type: "session_canceled",
+        payload: { reason: reason || null },
+        reason,
+        idempotency_key: idempotency_key || `cancel:${session_id}`,
+      });
+      sessions.set(session_id, { ...session, status: "aborted", completed_at: nowIso() });
+      return getSessionSnapshot(session_id);
+    },
+
+    async restartSession({ session_id, restarted_at } = {}) {
+      const session = getSessionSnapshot(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      const replacementId = stableId("session", { restart_of: session_id });
+      if (session.status === "aborted") {
+        const existingReplacement = getSessionSnapshot(replacementId);
+        if (existingReplacement) return existingReplacement;
+      }
+      assertSessionAllowsUserWrite(session);
+      const restartedAt = restarted_at || nowIso();
+      const fresh = await this.createSession({
+        id: replacementId,
+        profile_id: session.profile_id,
+        title: session.title,
+        status: "active",
+        focus: session.focus,
+        summary: session.summary,
+        source: "restart",
+        planned_at: restartedAt,
+        started_at: restartedAt,
+        exercises: copyExercisesForRestart(session.exercises),
+      });
+      await this.abortSession({ session_id, reason: `Started over as ${fresh.id}`, idempotency_key: `restart:${fresh.id}` });
+      return fresh;
     },
 
     async getSessionLiveState(session_id) {
@@ -442,6 +485,14 @@ export function createMemoryTrainingStore(seed = {}) {
   };
 }
 
+function copyExercisesForRestart(exercises = []) {
+  return exercises.map(({ id, session_id, position, version, ...exercise }) => ({
+    ...clone(exercise),
+    session_exercise_id: undefined,
+    version: 1,
+  }));
+}
+
 export function normalizeExercise(sessionId, rawExercise, position) {
   return {
     id: rawExercise.id || rawExercise.session_exercise_id || `${sessionId}:ex:${position + 1}`,
@@ -576,6 +627,78 @@ export function createD1TrainingStore(db) {
       }
       await this.logSessionEvent({ session_id, type: "session_started", payload: { started_at: startedAt }, idempotency_key: idempotency_key || `start:${session_id}` });
       return this.getSession(session_id);
+    },
+
+    async abortSession({ session_id, reason, idempotency_key } = {}) {
+      const session = await this.getSession(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      if (session.status === "aborted") return session;
+      assertSessionAllowsUserWrite(session);
+      const canceledAt = nowIso();
+      const key = idempotency_key || `cancel:${session_id}`;
+      const eventId = stableId("event", { session_id, type: "session_canceled", key });
+      const results = await db.batch([
+        db.prepare(`
+          INSERT OR IGNORE INTO session_events (id, session_id, type, version, payload_json, idempotency_key, reason)
+          SELECT ?, id, 'session_canceled', active_version, ?, ?, ? FROM sessions
+          WHERE id = ? AND status IN ('active', 'planned')
+        `).bind(eventId, JSON.stringify({ reason: reason || null }), key, reason || null, session_id),
+        db.prepare("UPDATE sessions SET status = 'aborted', completed_at = ? WHERE id = ? AND status IN ('active', 'planned')")
+          .bind(canceledAt, session_id),
+      ]);
+      if (!results.at(-1)?.meta?.changes) {
+        const current = await this.getSession(session_id);
+        if (current?.status === "aborted") return current;
+        assertSessionAllowsUserWrite(current);
+        throw new Error("Session could not be canceled");
+      }
+      return this.getSession(session_id);
+    },
+
+    async restartSession({ session_id, restarted_at } = {}) {
+      const session = await this.getSession(session_id);
+      if (!session) throw new Error(`Session not found: ${session_id}`);
+      const replacementId = stableId("session", { restart_of: session_id });
+      if (session.status === "aborted") {
+        const existingReplacement = await this.getSession(replacementId);
+        if (existingReplacement) return existingReplacement;
+      }
+      assertSessionAllowsUserWrite(session);
+      const restartedAt = restarted_at || nowIso();
+      const replacementExercises = copyExercisesForRestart(session.exercises).map((exercise, index) => normalizeExercise(replacementId, exercise, index));
+      const createdPayload = JSON.stringify({ title: session.title, exercise_count: replacementExercises.length });
+      const cancelReason = `Started over as ${replacementId}`;
+      const statements = [
+        db.prepare(`
+          INSERT OR IGNORE INTO sessions (id, profile_id, title, status, focus_json, summary, source, active_version, planned_at, started_at)
+          SELECT ?, ?, ?, 'active', ?, ?, 'restart', 1, ?, ?
+          WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND status IN ('active', 'planned'))
+        `).bind(replacementId, session.profile_id, session.title, JSON.stringify(session.focus || []), session.summary || null, restartedAt, restartedAt, session_id),
+        ...replacementExercises.map((exercise) => db.prepare(`
+          INSERT OR IGNORE INTO session_exercises (id, session_id, position, exercise_id, name, prescription_json, alternatives_json, rationale, classification, version, is_active)
+          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ?)
+        `).bind(exercise.id, replacementId, exercise.position, exercise.exercise_id, exercise.name, JSON.stringify(exercise.prescription), JSON.stringify(exercise.alternatives), exercise.rationale, exercise.classification, exercise.is_active ? 1 : 0, replacementId)),
+        db.prepare(`
+          INSERT OR IGNORE INTO session_events (id, session_id, type, version, payload_json, idempotency_key)
+          SELECT ?, ?, 'session_created', 1, ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ?)
+        `).bind(stableId("event", { session_id: replacementId, type: "session_created" }), replacementId, createdPayload, `session_created:${replacementId}`, replacementId),
+        db.prepare(`
+          INSERT OR IGNORE INTO session_events (id, session_id, type, version, payload_json, idempotency_key, reason)
+          SELECT ?, id, 'session_canceled', active_version, ?, ?, ? FROM sessions
+          WHERE id = ? AND status IN ('active', 'planned')
+        `).bind(stableId("event", { session_id, type: "session_canceled", replacementId }), JSON.stringify({ reason: cancelReason }), `restart:${replacementId}`, cancelReason, session_id),
+        db.prepare("UPDATE sessions SET status = 'aborted', completed_at = ? WHERE id = ? AND status IN ('active', 'planned')")
+          .bind(restartedAt, session_id),
+      ];
+      const results = await db.batch(statements);
+      if (!results.at(-1)?.meta?.changes) {
+        const existingReplacement = await this.getSession(replacementId);
+        if (existingReplacement) return existingReplacement;
+        const current = await this.getSession(session_id);
+        assertSessionAllowsUserWrite(current);
+        throw new Error("Session could not be restarted");
+      }
+      return this.getSession(replacementId);
     },
 
     async getSessionLiveState(session_id) {
@@ -747,13 +870,33 @@ export function createD1TrainingStore(db) {
         }
         return this.getSession(session_id);
       }
-      await this.logSessionEvent({ session_id, type: "session_completed", payload: { completion: clone(completion), telemetry: clone(telemetryPayload || null) }, idempotency_key: key });
+      assertSessionAllowsUserWrite(session);
+      const completedAt = completion.completed_at || nowIso();
+      const eventPayload = { completion: clone(completion), telemetry: clone(telemetryPayload || null) };
+      const eventId = stableId("event", { session_id, type: "session_completed", key });
+      const statements = [
+        db.prepare(`
+          INSERT OR IGNORE INTO session_events (id, session_id, type, version, payload_json, idempotency_key)
+          SELECT ?, id, 'session_completed', active_version, ?, ? FROM sessions
+          WHERE id = ? AND status IN ('active', 'planned')
+        `).bind(eventId, JSON.stringify(eventPayload), key, session_id),
+      ];
       if (telemetryPayload) {
-        await db.prepare("INSERT INTO session_telemetry (session_id, telemetry_json) VALUES (?, ?) ON CONFLICT(session_id) DO UPDATE SET telemetry_json = excluded.telemetry_json, updated_at = CURRENT_TIMESTAMP").bind(session_id, JSON.stringify(telemetryPayload)).run();
+        statements.push(db.prepare(`
+          INSERT INTO session_telemetry (session_id, telemetry_json)
+          SELECT ?, ? WHERE EXISTS (SELECT 1 FROM sessions WHERE id = ? AND status IN ('active', 'planned'))
+          ON CONFLICT(session_id) DO UPDATE SET telemetry_json = excluded.telemetry_json, updated_at = CURRENT_TIMESTAMP
+        `).bind(session_id, JSON.stringify(telemetryPayload), session_id));
       }
-      await db.prepare("UPDATE sessions SET status = 'completed', completed_at = ?, completion_json = ? WHERE id = ?")
-        .bind(completion.completed_at || nowIso(), JSON.stringify(completion), session_id)
-        .run();
+      statements.push(db.prepare("UPDATE sessions SET status = 'completed', completed_at = ?, completion_json = ? WHERE id = ? AND status IN ('active', 'planned')")
+        .bind(completedAt, JSON.stringify(completion), session_id));
+      const results = await db.batch(statements);
+      if (!results.at(-1)?.meta?.changes) {
+        const current = await this.getSession(session_id);
+        if (current?.status === "completed") return current;
+        assertSessionAllowsUserWrite(current);
+        throw new Error("Session could not be completed");
+      }
       return this.getSession(session_id);
     },
 

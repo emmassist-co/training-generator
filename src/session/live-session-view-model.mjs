@@ -1,5 +1,13 @@
 import { deriveSessionLiveState } from "../db/training-store.mjs";
 import { exerciseImageUrls, firstExerciseImage } from "../media/exercise-images.mjs";
+import { buildMuscleMap } from "../media/muscle-map.mjs";
+import { FRONT_MUSCLES } from "../vendor/body-muscles/data/muscles.front.ts";
+import { BACK_MUSCLES } from "../vendor/body-muscles/data/muscles.back.ts";
+
+const MUSCLE_PATHS = {
+  front: FRONT_MUSCLES.map(({ id, path }) => ({ id, path })),
+  back: BACK_MUSCLES.map(({ id, path }) => ({ id, path })),
+};
 
 const COMPACT_VALUE_LIMIT = 22;
 
@@ -100,7 +108,7 @@ function elapsedSeconds(session) {
   const startedAt = Date.parse(session.started_at || session.startedAt || "");
   if (!Number.isFinite(startedAt)) return 0;
   const completedAt = Date.parse(session.completed_at || session.completedAt || "");
-  const endedAt = session.status === "completed" && Number.isFinite(completedAt) ? completedAt : Date.now();
+  const endedAt = ["completed", "aborted"].includes(session.status) && Number.isFinite(completedAt) ? completedAt : Date.now();
   return Math.max(0, Math.floor((endedAt - startedAt) / 1000));
 }
 
@@ -109,6 +117,8 @@ export function buildLiveSessionViewModel(session = {}) {
   const liveState = deriveSessionLiveState(session);
   const completed = new Set(liveState.completed_exercise_ids || []);
   const isCompleted = session.status === "completed";
+  const isCanceled = session.status === "aborted";
+  const isReadOnly = isCompleted || isCanceled;
   const latestNote = liveState.notes?.at(-1)?.text || "";
   const elapsed = elapsedSeconds(session);
 
@@ -121,6 +131,8 @@ export function buildLiveSessionViewModel(session = {}) {
       active_version: session.active_version,
       summary: session.summary || "Train from one focused exercise card. Reps, load, timer, notes, and coach-readable logs save while you work.",
       is_completed: isCompleted,
+      is_canceled: isCanceled,
+      is_read_only: isReadOnly,
       elapsed_seconds: elapsed,
     },
     progress: {
@@ -138,6 +150,7 @@ export function buildLiveSessionViewModel(session = {}) {
       const gallery = exerciseImageUrls(exercise);
       const instructions = Array.isArray(exercise.instructions) ? exercise.instructions.filter(Boolean) : [];
       const targetAreas = Array.isArray(exercise.muscles) ? exercise.muscles.filter(Boolean) : [];
+      const muscleMap = buildMuscleMap(targetAreas);
       const rationale = exercise.rationale || null;
       const attention = notes.length ? notes : rationale ? [rationale] : [];
       const latestSet = loggedSets.at(-1) || {};
@@ -160,6 +173,7 @@ export function buildLiveSessionViewModel(session = {}) {
         guidance: {
           equipment: exercise.equipment || null,
           target_areas: targetAreas,
+          muscle_map: muscleMap,
           instructions,
           attention,
           rationale: notes.length ? rationale : null,
@@ -183,6 +197,7 @@ export function buildLiveSessionViewModel(session = {}) {
         elapsed_seconds: elapsed,
       },
       exerciseNames: exercises.map((exercise) => exercise.name),
+      musclePaths: MUSCLE_PATHS,
     },
   };
 }

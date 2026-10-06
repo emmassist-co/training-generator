@@ -6,6 +6,7 @@ export function renderLiveSessionRuntime(runtimeData) {
     const liveSession = window.__LIVE_SESSION__;
     const session = liveSession.session;
     const exerciseNames = liveSession.exerciseNames;
+    const musclePaths = liveSession.musclePaths || { front: [], back: [] };
     const toast = document.querySelector('#toast');
     const notes = document.querySelector('#notes');
     const complete = document.querySelector('#complete');
@@ -43,13 +44,103 @@ export function renderLiveSessionRuntime(runtimeData) {
       setToast('Saved');
       return event;
     }
+    function sessionIsReadOnly() { return session.status === 'completed' || session.status === 'aborted'; }
+    function renderMuscleMaps() {
+      const svgNamespace = 'http://www.w3.org/2000/svg';
+      for (const map of document.querySelectorAll('[data-muscle-map]')) {
+        for (const view of ['front', 'back']) {
+          const svg = map.querySelector('[data-muscle-view="' + view + '"]');
+          if (!svg || svg.childElementCount) continue;
+          const targets = new Set((map.dataset[view + 'Targets'] || '').split(',').filter(Boolean));
+          for (const muscle of musclePaths[view] || []) {
+            const path = document.createElementNS(svgNamespace, 'path');
+            path.setAttribute('d', muscle.path);
+            path.setAttribute('data-muscle-id', muscle.id);
+            if (targets.has(muscle.id)) path.setAttribute('class', 'is-target');
+            svg.append(path);
+          }
+        }
+      }
+    }
+    function setupLightbox() {
+      const dialog = document.querySelector('#exerciseLightbox');
+      const image = dialog?.querySelector('[data-lightbox-image]');
+      const count = dialog?.querySelector('[data-lightbox-count]');
+      const error = dialog?.querySelector('[data-lightbox-error]');
+      if (!dialog || !image || typeof dialog.showModal !== 'function') return;
+      let items = [];
+      let current = 0;
+      let opener = null;
+      function show(index) {
+        if (!items.length) return;
+        current = (index + items.length) % items.length;
+        image.hidden = false;
+        if (error) error.hidden = true;
+        image.src = items[current].dataset.lightboxSrc;
+        image.alt = items[current].dataset.lightboxAlt || 'Exercise reference image';
+        if (count) count.textContent = String(current + 1) + ' / ' + String(items.length);
+      }
+      for (const trigger of document.querySelectorAll('[data-lightbox-src]')) trigger.addEventListener('click', () => {
+        opener = trigger;
+        const exerciseId = trigger.dataset.lightboxExercise;
+        const galleryItems = [...document.querySelectorAll('.exercise-gallery [data-lightbox-exercise="' + CSS.escape(exerciseId) + '"]')];
+        items = galleryItems.length ? galleryItems : [trigger];
+        const requestedIndex = Number(trigger.dataset.lightboxIndex || 0);
+        show(Math.min(requestedIndex, items.length - 1));
+        dialog.showModal();
+      });
+      image.addEventListener('error', () => { image.hidden = true; if (error) error.hidden = false; });
+      dialog.querySelector('[data-lightbox-close]')?.addEventListener('click', () => dialog.close());
+      dialog.querySelector('[data-lightbox-prev]')?.addEventListener('click', () => show(current - 1));
+      dialog.querySelector('[data-lightbox-next]')?.addEventListener('click', () => show(current + 1));
+      dialog.addEventListener('keydown', (event) => { if (event.key === 'ArrowLeft') show(current - 1); if (event.key === 'ArrowRight') show(current + 1); });
+      dialog.addEventListener('close', () => { image.removeAttribute('src'); opener?.focus(); });
+    }
+    function setupSessionActions() {
+      const dialog = document.querySelector('#sessionActionDialog');
+      const confirmButton = dialog?.querySelector('[data-session-confirm]');
+      const title = dialog?.querySelector('[data-session-dialog-title]');
+      const copy = dialog?.querySelector('[data-session-dialog-copy]');
+      if (!dialog || !confirmButton || typeof dialog.showModal !== 'function') return;
+      let action = null;
+      for (const trigger of document.querySelectorAll('[data-session-action]')) trigger.addEventListener('click', () => {
+        action = trigger.dataset.sessionAction;
+        const restarting = action === 'restart';
+        title.textContent = restarting ? 'Start this session over?' : 'Cancel this session?';
+        copy.textContent = restarting
+          ? 'The current session stays in history as canceled. A fresh copy opens with no logged sets or notes.'
+          : 'Saved work stays in history. Unsaved entries will not be kept, and this session leaves Home.';
+        confirmButton.textContent = restarting ? 'Start over' : 'Cancel session';
+        dialog.returnValue = '';
+        dialog.showModal();
+      });
+      dialog.addEventListener('close', async () => {
+        if (dialog.returnValue !== 'confirm' || !action) return;
+        confirmButton.disabled = true;
+        setToast(action === 'restart' ? 'Starting over…' : 'Canceling…');
+        try {
+          await waitForPendingWrites();
+          if (sessionIsReadOnly()) throw new Error('This session is already read-only');
+          if (action === 'restart') {
+            const fresh = await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/restart', { restarted_at: new Date().toISOString() });
+            location.href = '/sessions/' + encodeURIComponent(fresh.id);
+          } else {
+            await postJson('/api/sessions/' + encodeURIComponent(session.id) + '/cancel', { reason: 'Canceled by user' });
+            location.href = '/';
+          }
+        } catch (error) {
+          confirmButton.disabled = false;
+          setToast(error.message || 'Session action failed');
+        }
+      });
+    }
     function buttonsForKey(key) { return [...document.querySelectorAll('[data-action-key="' + CSS.escape(key) + '"]')]; }
     function syncCompletionControl() {
-      if (!complete || session.status === 'completed') return;
+      if (!complete || sessionIsReadOnly()) return;
       complete.disabled = pendingActions.has('complete') || [...pendingActions].some((key) => key.startsWith('set:'));
     }
     async function withPending(key, fn) {
-      if (pendingActions.has(key) || session.status === 'completed') return pendingPromises.get(key) || null;
+      if (pendingActions.has(key) || sessionIsReadOnly()) return pendingPromises.get(key) || null;
       pendingActions.add(key);
       for (const button of buttonsForKey(key)) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
       syncCompletionControl();
@@ -59,13 +150,18 @@ export function renderLiveSessionRuntime(runtimeData) {
       finally {
         pendingPromises.delete(key);
         pendingActions.delete(key);
-        if (session.status !== 'completed') for (const button of buttonsForKey(key)) { button.disabled = false; button.removeAttribute('aria-busy'); }
+        if (!sessionIsReadOnly()) for (const button of buttonsForKey(key)) { button.disabled = false; button.removeAttribute('aria-busy'); }
         syncCompletionControl();
       }
     }
     async function waitForPendingSets() {
       const saves = [...pendingPromises.entries()].filter(([key]) => key.startsWith('set:')).map(([, promise]) => promise);
       if (saves.length) await Promise.all(saves);
+    }
+    async function waitForPendingWrites() {
+      const writes = [...pendingPromises.values()];
+      if (noteSavePromise && !writes.includes(noteSavePromise)) writes.push(noteSavePromise);
+      if (writes.length) await Promise.allSettled(writes);
     }
     function setActionError(card, text) {
       const error = card?.querySelector('[data-error]');
@@ -153,7 +249,7 @@ export function renderLiveSessionRuntime(runtimeData) {
       document.querySelector('.workspace-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
     }
     async function markExercise(card, completed) {
-      if (session.status === 'completed' || !card) return false;
+      if (sessionIsReadOnly() || !card) return false;
       const id = card.dataset.exerciseId;
       const key = 'done:' + id;
       return await withPending(key, async () => {
@@ -189,7 +285,7 @@ export function renderLiveSessionRuntime(runtimeData) {
       row.append(item);
     }
     async function logSet(card) {
-      if (session.status === 'completed' || !card) return;
+      if (sessionIsReadOnly() || !card) return;
       const id = card.dataset.exerciseId;
       const key = 'set:' + id;
       await withPending(key, async () => {
@@ -281,8 +377,11 @@ export function renderLiveSessionRuntime(runtimeData) {
       input.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
+    renderMuscleMaps();
+    setupLightbox();
+    setupSessionActions();
     startSession();
-    setInterval(() => { if (session.status !== 'completed') elapsedSeconds += 1; const elapsed = document.querySelector('#elapsedPill'); if (elapsed) elapsed.textContent = formatTime(elapsedSeconds); }, 1000);
+    setInterval(() => { if (!sessionIsReadOnly()) elapsedSeconds += 1; const elapsed = document.querySelector('#elapsedPill'); if (elapsed) elapsed.textContent = formatTime(elapsedSeconds); }, 1000);
     document.querySelector('#prevExercise')?.addEventListener('click', () => showExercise(activeIndex - 1));
     document.querySelector('#nextExercise')?.addEventListener('click', () => showExercise(activeIndex + 1));
     for (const jump of document.querySelectorAll('[data-exercise-jump]')) jump.addEventListener('click', () => showExercise(Number(jump.dataset.exerciseJump)));
@@ -309,7 +408,7 @@ export function renderLiveSessionRuntime(runtimeData) {
       return noteSavePromise;
     }
     saveNote?.addEventListener('click', () => withPending('note', saveNotes).catch((error) => setToast(error.message)));
-    for (const button of document.querySelectorAll('[data-effort]')) button.addEventListener('click', () => postEvent('effort_flag_logged', { kind: button.dataset.effort }).then(() => { for (const item of document.querySelectorAll('[data-effort]')) item.setAttribute('aria-pressed', String(item === button)); }).catch((error) => setToast(error.message)));
+    for (const button of document.querySelectorAll('[data-effort]')) button.addEventListener('click', () => withPending('effort', () => postEvent('effort_flag_logged', { kind: button.dataset.effort })).then(() => { for (const item of document.querySelectorAll('[data-effort]')) item.setAttribute('aria-pressed', String(item === button)); }).catch((error) => setToast(error.message)));
     for (const proposal of document.querySelectorAll('[data-proposal-id]')) {
       const proposalId = proposal.dataset.proposalId;
       proposal.querySelector('[data-apply-proposal]')?.addEventListener('click', async () => {

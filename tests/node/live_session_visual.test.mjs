@@ -281,19 +281,27 @@ test("live session visual state matrix remains responsive and accessible", { tim
   assert.ok(contrast(colors.actionText, colors.actionBackground) >= 4.5, "primary action contrast must meet WCAG AA");
   assert.ok(contrast(colors.placeholder, colors.bodyBackground) >= 4.5, "placeholder contrast must meet WCAG AA");
   await capture(activeMobile.page, "active-mobile-390x844.png");
+  assert.ok(await activeMobile.page.locator('[data-muscle-id="biceps-left"].is-target').count());
+  assert.ok(await activeMobile.page.locator('[data-muscle-id="traps-mid-left"].is-target').count());
+  await activeMobile.page.locator(".exercise-card.is-active .media-expand").click();
+  assert.equal(await activeMobile.page.locator("#exerciseLightbox").evaluate((dialog) => dialog.open), true);
+  await capture(activeMobile.page, "exercise-lightbox-mobile.png", { preserveScroll: true });
+  await activeMobile.page.locator("[data-lightbox-close]").click();
   const activeGuide = activeMobile.page.locator(".context-region.is-active .exercise-guide");
   assert.equal(await activeGuide.locator(".exercise-gallery img").count(), 2);
   assert.match(await activeGuide.textContent(), /How to do it/);
   assert.match(await activeGuide.textContent(), /Pay attention/);
   await activeGuide.scrollIntoViewIfNeeded();
   await capture(activeMobile.page, "exercise-guide-mobile.png", { preserveScroll: true });
+  await activeMobile.page.reload();
   await activeMobile.page.locator(".exercise-card.is-active [data-reps]").scrollIntoViewIfNeeded();
 
   const focusSequence = [];
-  for (let index = 0; index < 9; index += 1) {
+  for (let index = 0; index < 10; index += 1) {
     await activeMobile.page.keyboard.press("Tab");
     focusSequence.push(await activeMobile.page.evaluate(() => {
       if (document.activeElement?.matches(".wordmark")) return "home";
+      if (document.activeElement?.matches(".media-expand")) return "image";
       if (document.activeElement?.matches("[data-reps]")) return "reps";
       if (document.activeElement?.matches("[data-load]")) return "load";
       if (document.activeElement?.matches("[data-exercise-note]")) return "note";
@@ -301,7 +309,7 @@ test("live session visual state matrix remains responsive and accessible", { tim
       return document.activeElement?.getAttribute("data-step-field") + ":" + document.activeElement?.getAttribute("data-step");
     }));
   }
-  assert.deepEqual(focusSequence, ["home", "reps", "reps:up", "reps:down", "load", "load:up", "load:down", "note", "log"]);
+  assert.deepEqual(focusSequence, ["home", "image", "reps", "reps:up", "reps:down", "load", "load:up", "load:down", "note", "log"]);
   const focusStyle = await activeMobile.page.evaluate(() => {
     const style = getComputedStyle(document.activeElement);
     return { width: style.outlineWidth, style: style.outlineStyle, color: style.outlineColor };
