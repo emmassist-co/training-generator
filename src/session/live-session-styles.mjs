@@ -14,7 +14,7 @@ a{color:inherit}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .session-shell{height:100dvh;display:grid;grid-template-rows:76px minmax(0,1fr) 68px;padding-top:env(safe-area-inset-top);background:var(--ground);overflow:hidden}
 .masthead{min-width:0;margin-inline:max(20px,env(safe-area-inset-left)) max(20px,env(safe-area-inset-right));border-bottom:1px solid var(--rule);display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px}
-.wordmark{font:800 29px/24px var(--display);letter-spacing:-.045em;text-transform:uppercase;white-space:nowrap}
+.wordmark{min-width:44px;min-height:44px;display:inline-flex;align-items:center;text-decoration:none;font:800 29px/24px var(--display);letter-spacing:-.045em;text-transform:uppercase;white-space:nowrap}
 .wordmark-e{position:relative;display:inline-block;margin-left:.035em;transform:skewX(-9deg)}
 .wordmark-e:before{content:"";position:absolute;z-index:1;left:-.05em;top:.32em;width:.62em;height:2px;background:var(--ground)}
 .wordmark-e:after{content:"";position:absolute;z-index:2;left:.12em;top:.3em;width:.42em;height:2px;background:var(--ink)}

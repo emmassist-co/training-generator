@@ -54,7 +54,7 @@ function LiveTrainingSessionDocument({ model }: { model: LiveSessionModel }) {
 }
 
 function Wordmark() {
-  return <span class="wordmark" aria-label="Flue"><span aria-hidden="true">FLU</span><span class="wordmark-e" aria-hidden="true">E</span></span>;
+  return <a class="wordmark" href="/" aria-label="Flue"><span aria-hidden="true">FLU</span><span class="wordmark-e" aria-hidden="true">E</span></a>;
 }
 
 function Masthead({ model }: { model: LiveSessionModel }) {

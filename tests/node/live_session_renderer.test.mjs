@@ -34,7 +34,7 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
   assert.match(html, /^<!doctype html><html lang="en">/);
   assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"\/>/);
   assert.match(html, /rel="preload" href="\/fonts\/barlow-condensed-700\.woff2"/);
-  assert.match(html, /aria-label="Flue"/);
+  assert.match(html, /<a class="wordmark" href="\/" aria-label="Flue">/);
   assert.match(html, /class="session-shell"/);
   assert.match(html, /class="workspace-scroll"/);
   assert.match(html, /<h1>Replay &lt;Session&gt;<\/h1>/);
