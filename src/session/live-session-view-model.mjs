@@ -1,5 +1,5 @@
 import { deriveSessionLiveState } from "../db/training-store.mjs";
-import { firstExerciseImage } from "../media/exercise-images.mjs";
+import { exerciseImageUrls, firstExerciseImage } from "../media/exercise-images.mjs";
 
 const COMPACT_VALUE_LIMIT = 22;
 
@@ -135,6 +135,11 @@ export function buildLiveSessionViewModel(session = {}) {
       const loggedSets = liveState.set_logs?.filter((set) => (set.session_exercise_id || set.exercise_id) === exercise.id) || [];
       const notes = prescriptionNotes(exercise.prescription);
       const image = firstExerciseImage(exercise);
+      const gallery = exerciseImageUrls(exercise);
+      const instructions = Array.isArray(exercise.instructions) ? exercise.instructions.filter(Boolean) : [];
+      const targetAreas = Array.isArray(exercise.muscles) ? exercise.muscles.filter(Boolean) : [];
+      const rationale = exercise.rationale || null;
+      const attention = notes.length ? notes : rationale ? [rationale] : [];
       const latestSet = loggedSets.at(-1) || {};
       return {
         ...exercise,
@@ -148,10 +153,18 @@ export function buildLiveSessionViewModel(session = {}) {
         metrics: prescriptionMetricItems(exercise.prescription),
         media: {
           image,
+          gallery,
           caption: exercise.equipment || exercise.category || "Exercise demo",
           fallback_letter: (exercise.name?.[0] || "T").toUpperCase(),
         },
-        has_optional_details: Boolean(image || exercise.rationale || exercise.alternatives?.length || notes.length),
+        guidance: {
+          equipment: exercise.equipment || null,
+          target_areas: targetAreas,
+          instructions,
+          attention,
+          rationale: notes.length ? rationale : null,
+        },
+        has_optional_details: Boolean(gallery.length || exercise.rationale || exercise.alternatives?.length || notes.length || instructions.length || targetAreas.length || exercise.equipment),
         logged_set_count: loggedSets.length,
         initial_reps: exercise.prescription?.reps || 0,
         initial_load: conciseLoadValue(exercise.prescription?.load) || 0,

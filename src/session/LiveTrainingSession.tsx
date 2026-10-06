@@ -218,7 +218,7 @@ function ExerciseContext({ exercise, index, model }: { exercise: LiveExercise; i
         <MetricStrip metrics={exercise.metrics} variant="context" />
         {exercise.plan_note?.full ? <p class="plan-copy">{exercise.plan_note.full}</p> : null}
       </section>
-      {exercise.has_optional_details ? <section class="context-section details-panel"><header><h2>Details</h2><span>Form</span></header>{exercise.rationale ? <p>{exercise.rationale}</p> : null}<Alternatives exercise={exercise} /></section> : null}
+      {exercise.has_optional_details ? <ExerciseGuide exercise={exercise} /> : null}
       {!model.session.is_completed ? <button type="button" class="movement-done" data-write-control data-done data-completed={exercise.is_done ? "true" : undefined}>{exercise.is_done ? "Movement complete ✓" : "Mark movement done"}</button> : null}
       <a class="text-link coach-link" href={`/chat?profile_id=${encodeURIComponent(model.session.profile_id)}&session_id=${encodeURIComponent(String(model.session.id))}`}>Ask coach →</a>
     </section>
@@ -235,6 +235,44 @@ function ExerciseMedia({ exercise, eager }: { exercise: LiveExercise; eager: boo
       <h2>{exercise.name}</h2>
       <figcaption><span>Movement {String(exercise.index + 1).padStart(2, "0")}</span><strong>{media.caption}</strong></figcaption>
     </figure>
+  );
+}
+
+function ExerciseGuide({ exercise }: { exercise: LiveExercise }) {
+  const guide = exercise.guidance;
+  return (
+    <section class="context-section details-panel exercise-guide">
+      <header><h2>Exercise guide</h2><span>How to</span></header>
+      {guide.equipment || guide.target_areas.length ? (
+        <dl class="guide-facts">
+          {guide.equipment ? <div><dt>Equipment</dt><dd>{guide.equipment}</dd></div> : null}
+          {guide.target_areas.length ? <div><dt>Target areas</dt><dd>{guide.target_areas.join(" · ")}</dd></div> : null}
+        </dl>
+      ) : null}
+      {guide.rationale ? <div class="guide-block"><h3>Why this movement</h3><p>{guide.rationale}</p></div> : null}
+      {guide.instructions.length ? <div class="guide-block"><h3>How to do it</h3><ol>{guide.instructions.map((instruction: string) => <li>{instruction}</li>)}</ol></div> : null}
+      {guide.attention.length ? <div class="guide-block attention-block"><h3>Pay attention</h3><ul>{guide.attention.map((tip: string) => <li>{tip}</li>)}</ul></div> : null}
+      <ExerciseGallery exercise={exercise} />
+      <Alternatives exercise={exercise} />
+    </section>
+  );
+}
+
+function ExerciseGallery({ exercise }: { exercise: LiveExercise }) {
+  if (!exercise.media.gallery.length) return null;
+  const total = exercise.media.gallery.length;
+  return (
+    <div class="guide-block form-reference">
+      <h3>Form reference</h3>
+      <div class="exercise-gallery">
+        {exercise.media.gallery.map((image: string, index: number) => (
+          <figure>
+            <img src={image} alt={`${exercise.name}, step ${index + 1} of ${total}`} loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('figure').remove();" />
+            <figcaption>Step {index + 1} of {total}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
   );
 }
 
