@@ -49,6 +49,26 @@ export function createSessionApi() {
     }
   });
 
+  app.post("/:sessionId/cancel", async (c) => {
+    const store = createD1TrainingStore(c.env.TRAINING_DB);
+    const body = await safeJson(c);
+    try {
+      return c.json(await store.abortSession({ ...body, session_id: c.req.param("sessionId") }));
+    } catch (error) {
+      return handleSessionWriteError(c, error);
+    }
+  });
+
+  app.post("/:sessionId/restart", async (c) => {
+    const store = createD1TrainingStore(c.env.TRAINING_DB);
+    const body = await safeJson(c);
+    try {
+      return c.json(await store.restartSession({ ...body, session_id: c.req.param("sessionId") }), 201);
+    } catch (error) {
+      return handleSessionWriteError(c, error);
+    }
+  });
+
   app.post("/:sessionId/proposals/:proposalId/apply", async (c) => {
     const store = createD1TrainingStore(c.env.TRAINING_DB);
     const body = await safeJson(c);

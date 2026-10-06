@@ -58,6 +58,8 @@ test("session API returns session_read_only and performs no D1 writes for comple
     ["/readonly/proposals/proposal-1/apply", { approved_by: "user" }],
     ["/readonly/proposals/proposal-1/reject", { reason: "No" }],
     ["/readonly/complete", { completion: { notes: "Again" } }],
+    ["/readonly/cancel", { reason: "No longer needed" }],
+    ["/readonly/restart", {}],
   ];
 
   for (const [path, body] of requests) {
