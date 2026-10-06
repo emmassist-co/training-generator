@@ -27,6 +27,7 @@ Approved state authority: [approved-states.png](./approved-states.png)
 | Completed / read-only | [completed-read-only-mobile.png](./implementation/completed-read-only-mobile.png) | Replaces write fields with saved values and locks while review navigation remains available. |
 | Empty session | [empty-mobile.png](./implementation/empty-mobile.png) | Uses one plain editorial empty region and a coach route rather than an empty card. |
 | Long name and guidance | [long-copy-mobile.png](./implementation/long-copy-mobile.png) | Long title uses a taller image plate, metrics reflow to their actual count, and support copy wraps. |
+| Exercise guide | [exercise-guide-mobile.png](./implementation/exercise-guide-mobile.png) | Shows equipment, target areas, ordered setup cues, points to watch, extra form images, and swap ideas below the logger. |
 
 ## Automated browser matrix
 

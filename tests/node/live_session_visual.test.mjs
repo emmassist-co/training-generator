@@ -22,9 +22,15 @@ function exercise(overrides = {}) {
     exercise_id: "Seated_Cable_Rows",
     name: "Cable Row",
     prescription: { sets: 3, reps: 10, load: "50 kg", rest_seconds: 75 },
-    images: ["Seated_Cable_Rows/0.jpg"],
+    images: ["Seated_Cable_Rows/0.jpg", "Seated_Cable_Rows/1.jpg"],
     equipment: "Cable",
-    rationale: "Keep the torso still. Finish each pull with the handle at the lower ribs.",
+    muscles: ["middle back", "biceps"],
+    instructions: [
+      "Sit at the cable station with your feet braced and your chest tall.",
+      "Pull the handle toward your lower ribs while keeping your torso still.",
+      "Return with control and let the shoulder blades move naturally.",
+    ],
+    rationale: "Build controlled upper-back strength without borrowing motion from the torso.",
     alternatives: [{ name: "Chest-supported dumbbell row" }],
     ...overrides,
   };
@@ -160,20 +166,20 @@ async function openFixture(browser, fixture, options = {}) {
   };
 }
 
-async function capture(page, name) {
-  await page.evaluate(() => {
+async function capture(page, name, { preserveScroll = false } = {}) {
+  await page.evaluate((keepScroll) => {
     document.documentElement.style.scrollBehavior = "auto";
     for (const handle of window.__visualIntervalHandles || []) clearInterval(handle);
     window.__visualIntervalHandles = [];
     const elapsed = document.querySelector("#elapsedPill");
     if (elapsed && document.querySelector("#statusPill")?.textContent !== "Completed") elapsed.textContent = "00:00";
-    window.scrollTo(0, 0);
+    if (!keepScroll) window.scrollTo(0, 0);
     const workspace = document.querySelector(".workspace-scroll");
     if (workspace) {
       workspace.style.scrollBehavior = "auto";
-      workspace.scrollTo(0, 0);
+      if (!keepScroll) workspace.scrollTo(0, 0);
     }
-  });
+  }, preserveScroll);
   await page.screenshot({ path: path.join(captureDir, name), animations: "disabled", fullPage: false });
 }
 
@@ -275,11 +281,19 @@ test("live session visual state matrix remains responsive and accessible", { tim
   assert.ok(contrast(colors.actionText, colors.actionBackground) >= 4.5, "primary action contrast must meet WCAG AA");
   assert.ok(contrast(colors.placeholder, colors.bodyBackground) >= 4.5, "placeholder contrast must meet WCAG AA");
   await capture(activeMobile.page, "active-mobile-390x844.png");
+  const activeGuide = activeMobile.page.locator(".context-region.is-active .exercise-guide");
+  assert.equal(await activeGuide.locator(".exercise-gallery img").count(), 2);
+  assert.match(await activeGuide.textContent(), /How to do it/);
+  assert.match(await activeGuide.textContent(), /Pay attention/);
+  await activeGuide.scrollIntoViewIfNeeded();
+  await capture(activeMobile.page, "exercise-guide-mobile.png", { preserveScroll: true });
+  await activeMobile.page.locator(".exercise-card.is-active [data-reps]").scrollIntoViewIfNeeded();
 
   const focusSequence = [];
-  for (let index = 0; index < 8; index += 1) {
+  for (let index = 0; index < 9; index += 1) {
     await activeMobile.page.keyboard.press("Tab");
     focusSequence.push(await activeMobile.page.evaluate(() => {
+      if (document.activeElement?.matches(".wordmark")) return "home";
       if (document.activeElement?.matches("[data-reps]")) return "reps";
       if (document.activeElement?.matches("[data-load]")) return "load";
       if (document.activeElement?.matches("[data-exercise-note]")) return "note";
@@ -287,7 +301,7 @@ test("live session visual state matrix remains responsive and accessible", { tim
       return document.activeElement?.getAttribute("data-step-field") + ":" + document.activeElement?.getAttribute("data-step");
     }));
   }
-  assert.deepEqual(focusSequence, ["reps", "reps:up", "reps:down", "load", "load:up", "load:down", "note", "log"]);
+  assert.deepEqual(focusSequence, ["home", "reps", "reps:up", "reps:down", "load", "load:up", "load:down", "note", "log"]);
   const focusStyle = await activeMobile.page.evaluate(() => {
     const style = getComputedStyle(document.activeElement);
     return { width: style.outlineWidth, style: style.outlineStyle, color: style.outlineColor };
@@ -305,6 +319,8 @@ test("live session visual state matrix remains responsive and accessible", { tim
     return Math.round(rect.width);
   }));
   assert.deepEqual(desktopColumns, [220, 740, 340]);
+  const desktopBottomBar = await activeDesktop.page.locator(".bottom-bar").boundingBox();
+  assert.ok(desktopBottomBar && desktopBottomBar.y >= 0 && desktopBottomBar.y + desktopBottomBar.height <= 1200, "desktop exercise navigation must stay in the viewport");
   const routeColors = await activeDesktop.page.locator('[data-route-item="1"] button').evaluate((button) => ({
     background: getComputedStyle(document.body).backgroundColor,
     name: getComputedStyle(button.querySelector("strong")).color,
@@ -313,13 +329,19 @@ test("live session visual state matrix remains responsive and accessible", { tim
   assert.ok(contrast(routeColors.name, routeColors.background) >= 4.5, "desktop route names must meet WCAG AA");
   assert.ok(contrast(routeColors.detail, routeColors.background) >= 4.5, "desktop route details must meet WCAG AA");
   const desktopFocus = [];
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 4; index += 1) {
     await activeDesktop.page.keyboard.press("Tab");
-    desktopFocus.push(await activeDesktop.page.evaluate(() => document.activeElement?.getAttribute("data-exercise-jump")));
+    desktopFocus.push(await activeDesktop.page.evaluate(() => document.activeElement?.matches(".wordmark") ? "home" : document.activeElement?.getAttribute("data-exercise-jump")));
   }
-  assert.deepEqual(desktopFocus, ["0", "1", "2"], "desktop route controls must lead keyboard order");
+  assert.deepEqual(desktopFocus, ["home", "0", "1", "2"], "home link and desktop route controls must lead keyboard order");
   await capture(activeDesktop.page, "active-desktop-1440x1200.png");
   await activeDesktop.close();
+
+  const shortDesktop = await openFixture(browser, session(), { viewport: { width: 1024, height: 768 } });
+  await assertNoHorizontalOverflow(shortDesktop.page, "1024x768 short desktop");
+  const shortDesktopBottomBar = await shortDesktop.page.locator(".bottom-bar").boundingBox();
+  assert.ok(shortDesktopBottomBar && shortDesktopBottomBar.y >= 0 && shortDesktopBottomBar.y + shortDesktopBottomBar.height <= 768, "short desktop exercise navigation must stay in the viewport");
+  await shortDesktop.close();
 
   for (const viewport of [{ width: 320, height: 568 }, { width: 430, height: 932 }]) {
     const responsive = await openFixture(browser, session(), { viewport });
@@ -441,7 +463,7 @@ test("live session visual state matrix remains responsive and accessible", { tim
   });
   assert.equal(emptyHeader.scrollY, 0);
   assert.equal(emptyHeader.visible, true);
-  assert.ok(emptyHeader.top >= 24 && emptyHeader.top <= 27, "empty-state masthead must remain in view");
+  assert.ok(emptyHeader.top >= 15 && emptyHeader.top <= 17, "empty-state masthead home target must remain in view");
   await empty.close();
 
   const longCopy = await openFixture(browser, session({ exercises: [longCopyExercise()] }));

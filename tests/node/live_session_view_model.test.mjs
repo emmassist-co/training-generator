@@ -15,7 +15,11 @@ test("live session view model derives replayed state and media safely", () => {
         exercise_id: "Cable Row/Alt",
         name: "Cable Row",
         prescription: { sets: 3, reps: 10, load: "Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively.", rest_seconds: 75 },
-        images: ["Cable_Row/0.jpg"],
+        images: ["Cable_Row/0.jpg", "Cable_Row/1.jpg", "Cable_Row/1.jpg"],
+        equipment: "cable",
+        muscles: ["middle back", "biceps"],
+        instructions: ["Sit tall with the feet braced.", "Pull the handle toward the lower ribs."],
+        rationale: "Build controlled pulling strength.",
         alternatives: [{ name: "Dumbbell Row" }],
       },
       {
@@ -69,7 +73,35 @@ test("live session view model derives replayed state and media safely", () => {
   }]);
   assert.equal(model.exercises[0].plan_note.compact, "Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively.");
   assert.equal(model.exercises[0].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Row/0.jpg");
+  assert.deepEqual(model.exercises[0].media.gallery, [
+    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Row/0.jpg",
+    "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Cable_Row/1.jpg",
+  ]);
+  assert.deepEqual(model.exercises[0].guidance, {
+    equipment: "cable",
+    target_areas: ["middle back", "biceps"],
+    instructions: ["Sit tall with the feet braced.", "Pull the handle toward the lower ribs."],
+    attention: ["Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively."],
+    rationale: "Build controlled pulling strength.",
+  });
   assert.equal(model.exercises[1].media.image, "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/Hamstring%20Curl/0.jpg");
+});
+
+test("live session view model uses the exercise rationale as attention guidance for a standard load", () => {
+  const model = buildLiveSessionViewModel({
+    id: "standard-guidance",
+    status: "active",
+    exercises: [{
+      id: "ex-1",
+      name: "Cable Row",
+      prescription: { sets: 3, reps: 10, load: "50 kg" },
+      rationale: "Keep the torso still and stop before form changes.",
+    }],
+    events: [],
+  });
+
+  assert.deepEqual(model.exercises[0].guidance.attention, ["Keep the torso still and stop before form changes."]);
+  assert.equal(model.exercises[0].guidance.rationale, null);
 });
 
 test("live session view model marks completed sessions read-only and preserves duration", () => {

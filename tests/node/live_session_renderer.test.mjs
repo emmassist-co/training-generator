@@ -19,8 +19,11 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
       exercise_id: "Cable_Row",
       name: "Row <strong>",
       prescription: { sets: 3, reps: 10, load: "Set 1 at 50 kg if smooth, then keep knee calm and cap work conservatively.", rest_seconds: 75 },
-      images: ["Cable_Row/0.jpg"],
+      images: ["Cable_Row/0.jpg", "Cable_Row/1.jpg"],
       equipment: "cable",
+      muscles: ["middle back", "biceps"],
+      instructions: ["Sit tall and brace your feet.", "Pull toward your lower ribs."],
+      rationale: "Keep your torso still.",
       alternatives: ["Dumbbell Row"],
     }],
     events: [
@@ -31,7 +34,7 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
   assert.match(html, /^<!doctype html><html lang="en">/);
   assert.match(html, /<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"\/>/);
   assert.match(html, /rel="preload" href="\/fonts\/barlow-condensed-700\.woff2"/);
-  assert.match(html, /aria-label="Flue"/);
+  assert.match(html, /<a class="wordmark" href="\/" aria-label="Flue">/);
   assert.match(html, /class="session-shell"/);
   assert.match(html, /class="workspace-scroll"/);
   assert.match(html, /<h1>Replay &lt;Session&gt;<\/h1>/);
@@ -43,6 +46,14 @@ test("live session renderer uses TSX landmarks and one serialized runtime payloa
   assert.doesNotMatch(html, /Load used counter/);
   assert.match(html, />Rest /);
   assert.match(html, /class="plan-copy"/);
+  assert.match(html, /Exercise guide/);
+  assert.match(html, /How to do it/);
+  assert.match(html, /Pay attention/);
+  assert.match(html, /Target areas/);
+  assert.match(html, /middle back · biceps/);
+  assert.match(html, /Form reference/);
+  assert.match(html, /Step 1 of 2/);
+  assert.match(html, /Cable_Row\/1\.jpg/);
   assert.match(html, /value="50 kg"/);
   assert.match(html, /href="\/chat\?profile_id=alex&amp;session_id=s%3Cscript%3E"/);
   assert.match(html, /Pending coach changes/);
