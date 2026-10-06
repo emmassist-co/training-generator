@@ -6,6 +6,9 @@ test("verified pushes to main deploy the production Worker", async () => {
   const workflow = await readFile(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
   const pkg = JSON.parse(await readFile(new URL("../../package.json", import.meta.url), "utf8"));
 
+  assert.equal(workflow.match(/actions\/checkout@v7/g)?.length, 2);
+  assert.equal(workflow.match(/actions\/setup-node@v7/g)?.length, 2);
+  assert.doesNotMatch(workflow, /actions\/(?:checkout|setup-node)@v4/);
   assert.match(workflow, /deploy:\n\s+if: github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /needs: verify/);
   assert.match(workflow, /environment: production/);
